@@ -1,0 +1,3055 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>タクティカル・フォーカードポーカー</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: radial-gradient(circle at 50% 45%, #065f46 0%, #022c22 72%, #01140f 100%);
+      color: #f8fafc;
+      user-select: none;
+    }
+
+    /* カジノテーブルフェルト模様 */
+    .felt-bg {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 0);
+      background-size: 18px 18px;
+    }
+
+    /* 1画面収束用のカードサイズ制御（常時4枚横並び最適サイズ） */
+    .card-slot {
+      aspect-ratio: 2.5 / 3.5;
+      height: clamp(78px, 14.8dvh, 132px);
+      width: auto;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    @media (max-width: 480px) {
+      .card-slot {
+        height: clamp(70px, 13.5dvh, 104px);
+      }
+    }
+
+    .card-surface {
+      box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.55), 0 3px 6px -2px rgba(0, 0, 0, 0.35);
+    }
+
+    .interactive-card:hover {
+      transform: translateY(-7px) scale(1.04);
+      box-shadow: 0 14px 24px -4px rgba(251, 191, 36, 0.45);
+    }
+
+    .selected-card {
+      transform: translateY(-10px) scale(1.05);
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.85);
+    }
+
+    .selected-trade-give {
+      transform: translateY(-10px) scale(1.05);
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.85);
+    }
+
+
+    /* カードスキン（表面・裏面カスタマイズ） */
+    .card-front-classic {
+      background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+      border-color: #e2e8f0;
+    }
+    .card-front-gold {
+      background: linear-gradient(135deg, #fefce8 0%, #fef08a 45%, #fde047 100%);
+      border-color: #eab308 !important;
+      box-shadow: 0 8px 20px -4px rgba(234, 179, 8, 0.45), inset 0 0 12px rgba(255, 255, 255, 0.8);
+    }
+    .card-front-dark {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-color: #38bdf8 !important;
+      box-shadow: 0 8px 20px -4px rgba(56, 189, 248, 0.35);
+    }
+    .card-front-sakura {
+      background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 50%, #fecdd3 100%);
+      border-color: #fb7185 !important;
+      box-shadow: 0 8px 20px -4px rgba(244, 63, 94, 0.3);
+    }
+    .card-front-cyber {
+      background: linear-gradient(135deg, #090d16 0%, #1e1b4b 55%, #311042 100%);
+      border-color: #c084fc !important;
+      box-shadow: 0 8px 20px -4px rgba(192, 132, 252, 0.45);
+    }
+
+    .card-back-classic {
+      background-color: #1e293b;
+      background-image:
+        repeating-linear-gradient(45deg, rgba(251, 191, 36, 0.14) 0, rgba(251, 191, 36, 0.14) 2px, transparent 2px, transparent 7px),
+        repeating-linear-gradient(-45deg, rgba(251, 191, 36, 0.14) 0, rgba(251, 191, 36, 0.14) 2px, transparent 2px, transparent 7px);
+      border: 2.5px solid #cbd5e1;
+    }
+    .card-back-gold {
+      background: radial-gradient(circle at 30% 30%, #78350f, #451a03 70%, #1c0a00 100%);
+      background-image:
+        repeating-linear-gradient(45deg, rgba(253, 224, 71, 0.25) 0, rgba(253, 224, 71, 0.25) 2px, transparent 2px, transparent 8px),
+        radial-gradient(circle at 50% 50%, #92400e 0%, #451a03 100%);
+      border: 2.5px solid #facc15;
+    }
+    .card-back-dark {
+      background: linear-gradient(135deg, #020617 0%, #0c4a6e 100%);
+      background-image:
+        radial-gradient(rgba(56, 189, 248, 0.28) 1.5px, transparent 1.5px);
+      background-size: 10px 10px;
+      border: 2.5px solid #38bdf8;
+    }
+    .card-back-sakura {
+      background: linear-gradient(135deg, #881337 0%, #be185d 100%);
+      background-image:
+        radial-gradient(rgba(255, 228, 230, 0.3) 2px, transparent 2px);
+      background-size: 12px 12px;
+      border: 2.5px solid #fda4af;
+    }
+    .card-back-cyber {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #701a75 100%);
+      background-image:
+        repeating-linear-gradient(90deg, rgba(232, 121, 249, 0.2) 0, rgba(232, 121, 249, 0.2) 1px, transparent 1px, transparent 8px),
+        repeating-linear-gradient(0deg, rgba(56, 189, 248, 0.2) 0, rgba(56, 189, 248, 0.2) 1px, transparent 1px, transparent 8px);
+      border: 2.5px solid #e879f9;
+    }
+
+    /* カード裏面 */
+    .card-back {
+      background-color: #1e293b;
+      background-image:
+        repeating-linear-gradient(45deg, rgba(251, 191, 36, 0.14) 0, rgba(251, 191, 36, 0.14) 2px, transparent 2px, transparent 7px),
+        repeating-linear-gradient(-45deg, rgba(251, 191, 36, 0.14) 0, rgba(251, 191, 36, 0.14) 2px, transparent 2px, transparent 7px);
+      border: 2.5px solid #cbd5e1;
+    }
+
+    /* 飛行アニメーション用カード */
+    #flying-card-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 60;
+    }
+
+    .flying-card {
+      position: fixed;
+      aspect-ratio: 2.5 / 3.5;
+      border-radius: 0.75rem;
+      box-shadow: 0 0 28px rgba(251, 191, 36, 0.85), 0 14px 28px rgba(0, 0, 0, 0.65);
+      transition: transform 0.52s cubic-bezier(0.22, 1, 0.36, 1), left 0.52s cubic-bezier(0.22, 1, 0.36, 1), top 0.52s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+      transform-style: preserve-3d;
+    }
+
+    /* アニメーションキーフレーム */
+    @keyframes cardArriveFlip {
+      0% {
+        opacity: 0;
+        transform: scale(0.55) rotateY(160deg) translateY(-18px);
+      }
+      65% {
+        opacity: 1;
+        transform: scale(1.08) rotateY(0deg) translateY(0);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) rotateY(0deg) translateY(0);
+      }
+    }
+    .animate-draw-arrive {
+      animation: cardArriveFlip 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes shuffleShake {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      20% { transform: translateX(-9px) rotate(-5deg); }
+      40% { transform: translateX(9px) rotate(5deg); }
+      60% { transform: translateX(-6px) rotate(-3deg); }
+      80% { transform: translateX(6px) rotate(3deg); }
+    }
+    .animate-shuffle {
+      animation: shuffleShake 0.42s ease-in-out;
+    }
+
+    @keyframes shieldBurst {
+      0% { transform: scale(0.6); opacity: 0; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-shield {
+      animation: shieldBurst 0.4s ease-out;
+    }
+
+    @keyframes targetPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.75); }
+      50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+    }
+    .target-pulse {
+      animation: targetPulse 1.5s infinite;
+    }
+
+    @keyframes showdownGlow { 0% { transform: scale(.96); filter: brightness(.8); } 55% { transform: scale(1.025); filter: brightness(1.35); } 100% { transform: scale(1); filter: brightness(1); } }
+    .showdown-glow { animation: showdownGlow .75s ease-out; }
+
+    @keyframes royalCelebration {
+      0% { opacity: 0; transform: scale(0.85); }
+      20% { opacity: 1; transform: scale(1.05); }
+      80% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.1); }
+    }
+    .royal-flash-bg {
+      animation: royalPulseBg 1.5s infinite alternate;
+    }
+    @keyframes royalPulseBg {
+      0% { box-shadow: inset 0 0 40px rgba(251, 191, 36, 0.3); }
+      100% { box-shadow: inset 0 0 90px rgba(251, 191, 36, 0.75); }
+    }
+
+
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(251, 191, 36, 0.45);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="felt-bg flex flex-col justify-between">
+
+  <!-- 飛行カード演出レイヤー -->
+  <div id="flying-card-layer"></div>
+
+  <!-- 1. トップステータスバー -->
+  <header class="w-full bg-slate-950/85 backdrop-blur-md border-b border-amber-500/30 px-2.5 py-1.5 sm:px-5 shrink-0 z-20">
+    <div class="max-w-5xl mx-auto flex items-center justify-between gap-2">
+      <!-- タイトル & 3ゲーム先取スター表示 -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="hidden sm:flex w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 items-center justify-center text-slate-950 font-black text-base shadow">
+          ♠
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-xs sm:text-sm font-black text-amber-300 tracking-tight">
+              タクティカル4カードポーカー
+            </h1>
+            <span id="header-cpu-level-badge" class="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-400/40 text-[10px] font-bold text-emerald-200">
+              CPU: ふつう
+            </span>
+          </div>
+          <!-- 3ゲーム先取スターゲージ -->
+          <div class="flex items-center gap-2 text-[11px] sm:text-xs mt-0.5">
+            <span class="text-sky-300 font-bold">あなた <span id="player-stars" class="text-amber-400 tracking-widest">☆☆☆</span></span>
+            <span class="text-slate-600 font-bold">VS</span>
+            <span class="text-rose-300 font-bold"><span id="cpu-stars" class="text-amber-400 tracking-widest">☆☆☆</span> CPU</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中央：公開札全件閲覧ボタン -->
+      <div class="flex items-center gap-1.5">
+        <button id="btn-open-history" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-400/45 text-amber-200 text-[11px] sm:text-xs font-bold shadow transition flex items-center gap-1.5">
+          <span>📜 公開札一覧</span>
+          <span id="history-count-badge" class="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[10px]">0</span>
+        </button>
+      </div>
+
+      <!-- 右：進行情報 & 音量/レベル/ルール -->
+      <div class="flex items-center gap-1 sm:gap-1.5">
+        <div class="hidden sm:flex bg-slate-900/90 border border-slate-700 rounded-lg px-2 py-1 text-xs items-center gap-1.5">
+          <span class="text-slate-400">G<strong id="game-num" class="text-white">1</strong></span>
+          <span class="text-slate-600">/</span>
+          <span class="text-slate-400">T<strong id="turn-num" class="text-amber-400">1</strong></span>
+        </div>
+
+        <button id="btn-level-select" title="CPU強さ変更" class="px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] sm:text-xs font-bold transition">
+          ⚙️ 難易度
+        </button>
+
+        <button id="btn-sound" title="効果音切替" class="w-8 h-8 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 flex items-center justify-center text-sm transition">
+          🔊
+        </button>
+
+        <button id="btn-open-features" class="px-2 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-200 text-[11px] sm:text-xs font-bold transition flex items-center gap-1">
+          🏆 記録・ショップ <span class="rounded-md bg-slate-950/80 border border-amber-400/40 px-1.5 py-0.5 text-amber-300">🪙 <strong id="header-coins">0</strong></span>
+        </button>
+        <button id="btn-rules" class="px-2 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-[11px] sm:text-xs font-bold transition">
+          📖 ルール
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. メイン1画面ゲームフィールド -->
+  <main class="flex-1 w-full max-w-5xl mx-auto px-2.5 py-1.5 sm:px-4 sm:py-2 flex flex-col justify-between overflow-hidden">
+
+    <!-- CPUエリア（上段） -->
+    <section class="bg-slate-950/45 border border-emerald-500/25 rounded-2xl px-3 py-1.5 sm:py-2 backdrop-blur-sm shrink-0">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center gap-2">
+          <span id="cpu-name-pill" class="px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 text-[11px] font-bold">
+            CPU (ふつう) · 4枚
+          </span>
+          <span id="cpu-status-tag" class="text-[11px] text-slate-300 font-medium">
+            待機中
+          </span>
+        </div>
+
+        <!-- CPUスキル残数 -->
+        <div class="flex items-center gap-1.5 text-[11px]">
+          <span class="bg-slate-900/90 border border-slate-700/80 rounded-md px-2 py-0.5 text-slate-300">
+            🔀 <strong id="cpu-shuffles" class="text-amber-300">2</strong>/2
+          </span>
+          <span id="cpu-shield-badge" class="bg-slate-900/90 border border-sky-500/40 rounded-md px-2 py-0.5 text-sky-300 font-bold">
+            🛡️ 阻止あり
+          </span>
+        </div>
+      </div>
+
+      <!-- CPU手札スロット（常時4枚） -->
+      <div class="flex flex-col items-center">
+        <div id="cpu-hand-grid" class="flex items-center justify-center gap-2 sm:gap-4">
+          <!-- JS描画 -->
+        </div>
+        <div id="cpu-slot-labels" class="flex items-center justify-center gap-2 sm:gap-4 mt-1 text-[10px] text-emerald-200/60 font-bold">
+          <!-- JS描画 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 中央テーブルエリア（山札・最新公開札・ガイド＆アクション操作） -->
+    <section class="grid grid-cols-12 gap-2 sm:gap-3 items-center my-auto py-1 shrink-0">
+      
+      <!-- 左：山札 & 最新の公開捨て札（タップで全件履歴も開ける） -->
+      <div class="col-span-5 sm:col-span-4 bg-slate-950/60 border border-emerald-500/30 rounded-2xl p-2 sm:p-2.5 flex items-center justify-around gap-1.5">
+        <!-- 山札 -->
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] text-emerald-200/80 font-bold mb-1">山札</span>
+          <div id="deck-visual" class="relative card-slot card-back rounded-xl flex flex-col items-center justify-center shadow-lg">
+            <span class="text-amber-400/90 text-base sm:text-xl font-black">♠♥</span>
+            <span id="deck-count" class="mt-0.5 px-1.5 py-0.2 rounded-full bg-slate-950/90 text-amber-300 text-[10px] sm:text-xs font-black border border-amber-400/40">
+              44
+            </span>
+          </div>
+        </div>
+
+        <!-- 最新の公開捨て札 -->
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] text-amber-300 font-bold mb-1">最新公開札</span>
+          <button type="button" id="public-discard-visual" title="クリックで公開札の全履歴を表示" class="card-slot rounded-xl border-2 border-dashed border-slate-600 bg-slate-900/70 flex flex-col items-center justify-center text-center p-1 hover:border-amber-400 transition">
+            <span class="text-[9px] sm:text-[10px] text-slate-400 leading-tight">2T目から<br>公開戻し</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 右：フェーズ指示・アクションボタン・ライブログ -->
+      <div class="col-span-7 sm:col-span-8 bg-slate-950/75 border border-amber-400/35 rounded-2xl p-2.5 sm:p-3 flex flex-col justify-between h-full">
+        <div>
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span id="phase-badge" class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 text-[10px] sm:text-xs font-black">
+              準備中
+            </span>
+            <span id="turn-order-label" class="text-[10px] sm:text-xs text-emerald-300 font-bold">
+              G1 · T1 · 先攻: あなた
+            </span>
+          </div>
+          <p id="guide-text" class="text-xs sm:text-sm font-bold text-white leading-snug line-clamp-2">
+            CPUの強さを選択してゲームを開始してください。
+          </p>
+        </div>
+
+        <!-- ダイナミックアクションボタンエリア -->
+        <div id="dynamic-controls" class="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <!-- フェーズに応じたボタンがここに入る -->
+        </div>
+
+        <!-- コンパクトログ -->
+        <div class="mt-1.5 pt-1 border-t border-slate-800/90 flex items-center justify-between gap-2">
+          <p id="live-log" class="text-[10px] sm:text-[11px] text-slate-300 truncate">
+            手札は常に4枚上限！ドロー後の奪取は相手と1対1で交換します。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- プレイヤーエリア（下段） -->
+    <section class="bg-slate-950/60 border border-amber-400/35 rounded-2xl px-3 py-1.5 sm:py-2 backdrop-blur-sm shrink-0">
+      <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <span class="px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-[11px] font-bold">
+            あなた (4枚)
+          </span>
+          <span id="player-rank-badge" class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold">
+            役: ハイカード
+          </span>
+        </div>
+
+        <!-- プレイヤー常時スキル＆勝負宣言 -->
+        <div class="flex items-center gap-1.5">
+          <button id="btn-shuffle-hand" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:pointer-events-none text-white text-[11px] sm:text-xs font-bold shadow transition flex items-center gap-1">
+            <span>🔀 位置シャッフル</span>
+            <span id="player-shuffles" class="bg-indigo-950/90 px-1.5 rounded text-amber-300">2/2</span>
+          </button>
+
+          <span id="player-shield-badge" class="bg-slate-900 border border-sky-500/40 rounded-lg px-2 py-1 text-[11px] text-sky-300 font-bold">
+            🛡️ 阻止1/1
+          </span>
+
+          <button id="btn-showdown" class="px-2.5 sm:px-3 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 disabled:pointer-events-none text-slate-950 text-[11px] sm:text-xs font-black shadow transition">
+            🔥 揃った！(勝負)
+          </button>
+        </div>
+      </div>
+
+      <!-- プレイヤー手札スロット（取得順左→右固定・常時4枚） -->
+      <div class="flex flex-col items-center">
+        <div id="player-hand-grid" class="flex items-center justify-center gap-2 sm:gap-4">
+          <!-- JS描画 -->
+        </div>
+        <div id="player-slot-labels" class="flex items-center justify-center gap-2 sm:gap-4 mt-1 text-[10px] text-amber-200/80 font-bold">
+          <!-- JS描画 -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- モーダル0：スタート＆CPUレベル選択画面（4段階） -->
+  <div id="modal-start-level" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-400/80 rounded-2xl max-w-md w-full p-5 shadow-2xl">
+      <div class="text-center mb-4">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 font-black text-2xl shadow-lg mb-2">
+          ♠♥
+        </div>
+        <h2 class="text-xl sm:text-2xl font-black text-amber-300 tracking-tight">
+          タクティカル4カードポーカー
+        </h2>
+        <p class="text-xs text-slate-300 mt-1">
+          手札上限4枚・3ゲーム先取制！対戦するCPUの強さを選んでください。
+        </p>
+      </div>
+
+      <div class="mb-4 rounded-xl border border-violet-400/30 bg-violet-950/30 p-3">
+        <p class="text-xs font-black text-violet-200 mb-2">🎮 ゲームモード</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" data-mode="classic" class="mode-btn rounded-lg border border-amber-400 bg-amber-500/20 px-2 py-2 text-xs font-bold text-amber-200">♠ 通常対戦</button>
+          <button type="button" data-mode="boss" class="mode-btn rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs font-bold text-rose-200">👑 ボスCPU</button>
+          <button type="button" data-mode="special" class="mode-btn rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs font-bold text-sky-200">✨ 特殊ルール</button>
+          <button type="button" data-mode="tournament" class="mode-btn rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs font-bold text-emerald-200">🏅 トーナメント</button>
+          <button type="button" data-mode="roulette" class="mode-btn rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs font-bold text-fuchsia-200">🎲 封印カプセル</button>
+        </div>
+        <p id="mode-description" class="mt-2 text-[10px] text-slate-300">通常の4段階CPUと対戦します。</p>
+      </div>
+      <div class="space-y-2 mb-4" id="level-options-list">
+        <button type="button" data-level="easy" class="level-btn w-full text-left p-3 rounded-xl bg-slate-950/90 hover:bg-emerald-950/60 border border-slate-700 hover:border-emerald-400 transition flex items-center justify-between group">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-xs font-black">★☆☆☆ やさしい</span>
+              <span class="text-xs text-slate-400">初心者向け</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">気まぐれにカードを選び、奪取や阻止も直感的な入門CPU。</p>
+          </div>
+          <span class="text-emerald-400 font-black text-sm group-hover:translate-x-1 transition">▶</span>
+        </button>
+
+        <button type="button" data-level="normal" class="level-btn w-full text-left p-3 rounded-xl bg-slate-950/90 hover:bg-sky-950/60 border border-sky-400/70 transition flex items-center justify-between group">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 text-xs font-black">★★☆☆ ふつう</span>
+              <span class="text-xs text-sky-200">標準バランス</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">ペアやフラッシュを狙って手札を整え、堅実に勝負を仕掛けるCPU。</p>
+          </div>
+          <span class="text-sky-400 font-black text-sm group-hover:translate-x-1 transition">▶</span>
+        </button>
+
+        <button type="button" data-level="hard" class="level-btn w-full text-left p-3 rounded-xl bg-slate-950/90 hover:bg-amber-950/60 border border-slate-700 hover:border-amber-400 transition flex items-center justify-between group">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-xs font-black">★★★☆ つよい</span>
+              <span class="text-xs text-amber-200">上級タクティクス</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">期待値計算で不要牌を切り、あなたの新しいドロー位置（右端）を狙って奪取！</p>
+          </div>
+          <span class="text-amber-400 font-black text-sm group-hover:translate-x-1 transition">▶</span>
+        </button>
+
+        <button type="button" data-level="master" class="level-btn w-full text-left p-3 rounded-xl bg-slate-950/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-400 transition flex items-center justify-between group">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-xs font-black">★★★★ たつじん</span>
+              <span class="text-xs text-rose-200">完全カウンティングAI</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mt-1">公開札カウンティング＋期待値計算＋特殊カード即応＆ピンポイント奪取を駆使する超最強AI。</p>
+          </div>
+          <span class="text-rose-400 font-black text-sm group-hover:translate-x-1 transition">▶</span>
+        </button>
+      </div>
+
+      <button type="button" id="btn-cancel-level" class="hidden w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+        キャンセル（現在のゲームに戻る）
+      </button>
+    </div>
+  </div>
+
+  <!-- 追加モード：封印カプセル・デュエル（既存ポーカーとは独立） -->
+  <div id="modal-capsule-duel" class="hidden fixed inset-0 z-[90] bg-[#080910] text-slate-100 p-3 sm:p-5 overflow-y-auto">
+    <div class="max-w-lg mx-auto min-h-full flex flex-col justify-center">
+      <div class="rounded-2xl border border-fuchsia-400/50 bg-gradient-to-b from-slate-900 to-[#11101d] p-4 sm:p-5 shadow-2xl shadow-fuchsia-950/30">
+        <div class="text-center mb-4">
+          <div class="text-4xl mb-2">🎲</div>
+          <h2 class="text-2xl font-black tracking-wide text-fuchsia-200">封印カプセル・デュエル</h2>
+          <p class="text-xs text-slate-400 mt-1">運と読み合いの心理戦。ポーカーとは別モードです。</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="rounded-xl border border-sky-400/40 bg-sky-950/40 p-3 text-center"><div class="text-xs text-sky-200 font-bold">あなた</div><div id="capsule-player-energy" class="text-2xl font-black tracking-widest">♥♥♥</div><div id="capsule-player-guard" class="text-xs text-sky-100">ガード 0</div></div>
+          <div class="rounded-xl border border-rose-400/40 bg-rose-950/30 p-3 text-center"><div class="text-xs text-rose-200 font-bold">CPU</div><div id="capsule-cpu-energy" class="text-2xl font-black tracking-widest">♥♥♥</div><div id="capsule-cpu-guard" class="text-xs text-rose-100">ガード 0</div></div>
+        </div>
+        <div class="rounded-xl border border-slate-700 bg-black/40 p-3 mb-3">
+          <div class="flex justify-between items-center text-xs text-slate-400 mb-2"><span id="capsule-turn-label">あなたのターン</span><span id="capsule-stock-label">残り6個</span></div>
+          <div id="capsule-tray" class="grid grid-cols-6 gap-1.5" aria-label="封印カプセル"></div>
+          <p id="capsule-log" class="text-sm text-center text-slate-200 mt-3 min-h-12 flex items-center justify-center">誰にカプセルを引かせるか選ぼう。</p>
+        </div>
+        <div id="capsule-actions" class="grid grid-cols-2 gap-2">
+          <button id="capsule-target-player" class="rounded-xl bg-sky-600 hover:bg-sky-500 py-3 font-black text-sm">自分が引く</button>
+          <button id="capsule-target-cpu" class="rounded-xl bg-rose-600 hover:bg-rose-500 py-3 font-black text-sm">CPUに引かせる</button>
+        </div>
+        <div id="capsule-result-actions" class="hidden grid-cols-2 gap-2 mt-2">
+          <button id="capsule-restart" class="rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 py-3 font-black text-sm">もう一度</button>
+          <button id="capsule-back" class="rounded-xl bg-slate-700 hover:bg-slate-600 py-3 font-black text-sm">ポーカーに戻る</button>
+        </div>
+        <div class="mt-4 text-[11px] leading-relaxed text-slate-400 border-t border-slate-800 pt-3">ルール：6個のカプセルには「安定」4個、「波乱」2個が入っています。安定ならガードを獲得。波乱ならガードを1つ消費し、なければエネルギーが1減少。先にエネルギーが0になった側の負けです。6個使い切ると中身を入れ替えます。</div>
+        <button id="capsule-exit" class="mt-3 w-full text-xs text-slate-500 hover:text-white py-2">モード選択へ戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル1：CPUからの1対1奪取交換に対する「阻止」選択 -->
+  <div id="modal-block" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-sky-400 rounded-2xl max-w-sm w-full p-4 sm:p-5 shadow-2xl animate-shield">
+      <div class="flex items-center gap-2 text-sky-400 font-black text-base sm:text-lg mb-2">
+        <span>🛡️</span>
+        <h3>CPUが奪取交換を仕掛けてきました！</h3>
+      </div>
+      <p id="block-desc" class="text-xs sm:text-sm text-slate-200 mb-3 leading-relaxed">
+        CPUがあなたのカードを狙い、代わりに自分の1枚を差し出そうとしています。1ゲーム1回限りの「阻止」を使いますか？
+      </p>
+      <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between mb-4">
+        <span class="text-xs text-slate-400">狙われたあなたのカード:</span>
+        <span id="block-target-label" class="font-black text-base text-amber-300">♠A (左1)</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5">
+        <button id="btn-block-yes" class="py-2.5 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm shadow transition">
+          🛡️ 阻止する！
+        </button>
+        <button id="btn-block-no" class="py-2.5 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs sm:text-sm transition">
+          交換を受け入れる
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル2：公開札（捨て札）全件一覧モーダル -->
+  <div id="modal-history" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-400/60 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+        <div>
+          <h3 class="text-base font-black text-amber-300 flex items-center gap-1.5">
+            <span>📜 公開札（山札戻し）全履歴</span>
+            <span id="modal-history-count" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 text-xs">0枚</span>
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">このゲームで公開されて山札に戻ったカードの一覧（カウンティング用）</p>
+        </div>
+        <button id="btn-close-history" class="text-slate-400 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+
+      <!-- スート別サマリーチップ -->
+      <div id="history-suit-summary" class="grid grid-cols-4 gap-1.5 mb-3 text-center text-xs font-bold">
+        <!-- JS描画 -->
+      </div>
+
+      <!-- 全件リスト（新しい順） -->
+      <div id="history-full-list" class="max-h-[48dvh] overflow-y-auto custom-scroll space-y-1.5 pr-1">
+        <!-- JS描画 -->
+      </div>
+
+      <button id="btn-close-history-ok" class="mt-3 w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm">
+        閉じる
+      </button>
+    </div>
+  </div>
+
+  <!-- モーダル3：1ゲーム決着 & 次のゲームへの1枚持ち越し / 3ゲーム先取決着 -->
+  <div id="modal-round-result" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3">
+    <div class="bg-slate-900 border-2 border-amber-400 rounded-2xl max-w-xl w-full p-4 sm:p-5 shadow-2xl">
+      <div class="text-center mb-3">
+        <span id="res-badge" class="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[11px] font-bold mb-1">
+          勝負結果
+        </span>
+        <h2 id="res-title" class="text-xl sm:text-2xl font-black text-white">
+          あなたの勝利！
+        </h2>
+        <p id="res-sub" class="text-xs text-slate-300 mt-0.5">
+          ツーペアでCPUに勝利しました！
+        </p>
+        <!-- 現在の星獲得状況 -->
+        <div class="mt-2 inline-flex items-center gap-3 bg-slate-950/90 border border-slate-800 rounded-full px-4 py-1 text-xs font-bold">
+          <span class="text-sky-300">あなた <span id="res-player-stars" class="text-amber-400">★☆☆</span></span>
+          <span class="text-slate-600">|</span>
+          <span class="text-rose-300">CPU <span id="res-cpu-stars" class="text-amber-400">☆☆☆</span></span>
+        </div>
+      </div>
+
+      <!-- 両者の手札公開（4枚） -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+        <div class="bg-slate-950/80 border border-sky-500/40 rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-sky-300">あなた</span>
+            <span id="res-player-rank" class="text-[11px] font-black text-amber-300">ツーペア</span>
+          </div>
+          <div id="res-player-cards" class="flex justify-center gap-1.5"></div>
+        </div>
+
+        <div class="bg-slate-950/80 border border-rose-500/40 rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-rose-300">CPU</span>
+            <span id="res-cpu-rank" class="text-[11px] font-black text-amber-300">ワンペア</span>
+          </div>
+          <div id="res-cpu-cards" class="flex justify-center gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- 持ち越し選択エリア（3ゲーム先取決着時は非表示） -->
+      <div id="carryover-section" class="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-3 mb-3">
+        <h4 class="text-xs sm:text-sm font-black text-emerald-300 mb-0.5">
+          🎁 次のゲームへの「1枚持ち越し」を選択
+        </h4>
+        <p class="text-[11px] text-emerald-100/80 mb-2">
+          選んだ1枚を左端（1枚目）に持ったまま、さらに3枚ドローして合計4枚で次のゲームを開始します。
+        </p>
+        <div id="carryover-grid" class="flex justify-center gap-2.5"></div>
+      </div>
+
+      <!-- 決定ボタン -->
+      <div class="flex gap-2">
+        <button id="btn-next-round" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg transition">
+          この1枚を持ち越して次のゲームへ ▶
+        </button>
+        <button id="btn-new-match" class="hidden flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm shadow-lg transition">
+          🔄 もう1マッチ遊ぶ (0-0から)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル4：ルール説明 -->
+  <div id="modal-rules" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-amber-400/50 rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+        <h3 class="text-base font-black text-amber-300">📖 ルール & 4カードポーカー役</h3>
+        <button id="btn-close-rules" class="text-slate-400 hover:text-white text-lg font-bold px-2">✕</button>
+      </div>
+
+      <div class="space-y-2.5 text-xs text-slate-200 max-h-[62dvh] overflow-y-auto custom-scroll pr-1">
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+          <p class="font-bold text-amber-300 mb-1">🏆 常時手札4枚上限 ＆ 3ゲーム先取（★★★）</p>
+          <p class="text-slate-300">お互い<strong>常に4枚の手札（絶対に5枚になりません）</strong>で戦います。<strong>最初の3ターン（1〜3T目）は両者とも「🔥 揃った！」宣言ができず、4ターン目から勝負宣言が可能</strong>になります。先に3勝したプレイヤーがマッチ優勝！ゲーム終了時は手持ちから<strong>1枚だけ次のゲームへ持ち越し</strong>（次ゲームは持ち越し1枚＋新規ドロー3枚＝4枚で開始）できます。</p>
+        </div>
+
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+          <p class="font-bold text-emerald-300 mb-1">🔄 ターンの流れ ＆ パス機能</p>
+          <ul class="list-disc list-inside text-slate-300 space-y-1">
+            <li><strong>1ターン目：</strong> 最初の4枚が配られた状態からスタート。「🔥 揃った！」宣言を行います。</li>
+            <li><strong>2ターン目以降（①交換ドロー / パス）：</strong> 手札から1枚選んで山札に戻しドローするか、<strong>「✋ パスする」ボタンでカードを引かずにそのままターンを終了</strong>することもできます。</li>
+            <li><strong>ドロー後の1対1奪取交換（②奪取交換）：</strong> ドロー後、<strong>①相手の手札から奪う1枚</strong>と<strong>②自分が相手に渡す1枚</strong>を選んで1対1で交換します（お互い4枚のまま！）。狙われた側は1ゲーム1回まで「🛡️ 阻止」で交換を無効化できます。</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+          <p class="font-bold text-indigo-300 mb-1">🔀 取得順固定 & 位置シャッフル（2回）・📜 公開札一覧</p>
+          <p class="text-slate-300">手札は常に<strong>「左（古い）→右（新しい）」</strong>の順で固定されます。1ゲームに2回まで「位置シャッフル」で並びを攪乱でき、上部の「📜 公開札一覧」から山札に戻った全カードを確認できます。</p>
+        </div>
+
+        
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-amber-400/40">
+          <p class="font-bold text-amber-300 mb-1">✨ 特殊カード（山札に7枚封入！）</p>
+          <ul class="list-disc list-inside text-slate-300 space-y-1">
+            <li><strong>🃏 ジョーカー（2枚）：</strong> 手札にあるだけで全スート・全数字の代わりになり、最強の役を自動成立させます！</li>
+            <li><strong>👁️ 全透視アイ（2枚）：</strong> 手番中に「発動！」すると、そのゲーム終了までCPUの手札4枚すべてが表向きで見えるようになります（発動後に1枚自動補充）。</li>
+            <li><strong>💣 妨害ジャマー（2枚）：</strong> 発動すると相手の次ターン行動を1回完全凍結し、さらに相手の「🛡️阻止」や「🔀シャッフル」を1つ破壊します！</li>
+            <li><strong>⚡ 貫通スティール（1枚）：</strong> 発動すると相手の「🛡️阻止」を無視して最強の1枚を強制奪取します！</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+          <p class="font-bold text-amber-300 mb-1">🃏 4カードポーカー役（強い順）</p>
+          <div class="grid grid-cols-2 gap-1 text-[11px]">
+            <div class="bg-slate-900 px-2 py-1 rounded text-amber-300 font-bold col-span-2">0. 👑 ロイヤルストレートフラッシュ / 1. ストレートフラッシュ</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-amber-200 font-bold">2. フォーカード</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-emerald-300 font-bold">3. スリーカード</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-sky-300 font-bold">4. フラッシュ</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-indigo-300 font-bold">5. ストレート (A-2-3-4可)</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-purple-300 font-bold">6. ツーペア</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-teal-300 font-bold">7. ワンペア</div>
+            <div class="bg-slate-900 px-2 py-1 rounded text-slate-300 font-bold">8. ハイカード</div>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-close-rules-ok" class="mt-3 w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm">
+        OK（ゲームに戻る）
+      </button>
+    </div>
+  </div>
+
+  <!-- 追加機能：プロフィール・実績・ショップ・対戦履歴 -->
+  <div id="modal-features" class="hidden fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3">
+    <div class="w-full max-w-2xl max-h-[90dvh] overflow-y-auto custom-scroll rounded-2xl border-2 border-violet-400/60 bg-slate-900 p-4 shadow-2xl">
+      <div class="flex items-center justify-between gap-2 border-b border-slate-700 pb-3 mb-3">
+        <div><h2 class="text-lg font-black text-violet-200">🏆 プレイヤープロフィール</h2><p class="text-[11px] text-slate-400">実績・戦績・ショップ・対戦履歴</p></div>
+        <button id="btn-close-features" class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-bold">✕</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="rounded-xl bg-slate-950 p-3 text-center"><div class="text-[10px] text-slate-400">所持コイン</div><div id="profile-coins" class="text-xl font-black text-amber-300">0</div></div>
+        <div class="rounded-xl bg-slate-950 p-3 text-center"><div class="text-[10px] text-slate-400">通算勝利</div><div id="profile-wins" class="text-xl font-black text-emerald-300">0</div></div>
+        <div class="rounded-xl bg-slate-950 p-3 text-center"><div class="text-[10px] text-slate-400">勝率</div><div id="profile-rate" class="text-xl font-black text-sky-300">0%</div></div>
+      </div>
+      <div class="grid grid-cols-4 gap-1.5 mb-3">
+        <button data-feature-tab="stats" class="feature-tab rounded-lg bg-violet-500/25 border border-violet-300/50 py-2 text-[11px] font-bold">📊 戦績</button>
+        <button data-feature-tab="achievements" class="feature-tab rounded-lg bg-slate-800 py-2 text-[11px] font-bold">🏅 実績</button>
+        <button data-feature-tab="shop" class="feature-tab rounded-lg bg-slate-800 py-2 text-[11px] font-bold">🛒 ショップ</button>
+        <button data-feature-tab="replays" class="feature-tab rounded-lg bg-slate-800 py-2 text-[11px] font-bold">📜 履歴</button>
+      </div>
+      <div id="feature-content" class="min-h-40 space-y-2"></div>
+      <p class="mt-3 text-[10px] text-slate-500">※記録はこのブラウザの端末内に保存されます。</p>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Web Audio API によるシンセサイズ効果音エンジン（外部音声URL不要）
+     */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playDraw() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(760, now + 0.14);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.17);
+      }
+
+      playFlip() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(580, now);
+        osc.frequency.exponentialRampToValueAtTime(920, now + 0.09);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.11);
+      }
+
+      playSteal() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [440, 660].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now + i * 0.07);
+          gain.gain.setValueAtTime(0.09, now + i * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.14);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.07);
+          osc.stop(now + i * 0.07 + 0.15);
+        });
+      }
+
+      playShield() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.setValueAtTime(520, now + 0.08);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      }
+
+
+      playRoyalWin() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093.0];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = idx % 2 === 0 ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.16, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.48);
+        });
+      }
+
+      playWin() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          gain.gain.setValueAtTime(0.14, now + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.09);
+          osc.stop(now + idx * 0.09 + 0.3);
+        });
+      }
+    }
+
+    const sfx = new SoundEngine();
+
+    /**
+     * トランプ定義
+     */
+    const SUITS = [
+      { id: 'S', symbol: '♠', name: 'スペード', color: 'text-slate-900' },
+      { id: 'H', symbol: '♥', name: 'ハート', color: 'text-rose-600' },
+      { id: 'D', symbol: '♦', name: 'ダイヤ', color: 'text-rose-600' },
+      { id: 'C', symbol: '♣', name: 'クラブ', color: 'text-slate-900' }
+    ];
+
+    const RANKS = [
+      { value: 2, label: '2' }, { value: 3, label: '3' }, { value: 4, label: '4' },
+      { value: 5, label: '5' }, { value: 6, label: '6' }, { value: 7, label: '7' },
+      { value: 8, label: '8' }, { value: 9, label: '9' }, { value: 10, label: '10' },
+      { value: 11, label: 'J' }, { value: 12, label: 'Q' }, { value: 13, label: 'K' },
+      { value: 14, label: 'A' }
+    ];
+
+
+    const SPECIAL_CARD_TYPES = {
+      JOKER: {
+        specialType: 'JOKER',
+        label: 'JOKER',
+        shortLabel: 'JK',
+        symbol: '🃏',
+        name: 'ジョーカー',
+        badge: '万能ワイルド',
+        desc: '手札にあると全スート・全数字の代わりになり、最強の役を自動成立させる！',
+        accentClass: 'border-amber-400 bg-gradient-to-br from-amber-100 via-yellow-50 to-amber-200',
+        textClass: 'text-amber-700',
+        usable: false
+      },
+      EYE: {
+        specialType: 'EYE',
+        label: '透視',
+        shortLabel: '👁️',
+        name: '全透視アイ',
+        badge: '効果発動可',
+        desc: '発動すると、このゲーム終了までCPUの手札4枚がすべて表向きで丸見えになる！（発動後は山札から1枚補充）',
+        accentClass: 'border-cyan-400 bg-gradient-to-br from-cyan-100 via-sky-50 to-indigo-100',
+        textClass: 'text-cyan-800',
+        usable: true
+      },
+      JAMMER: {
+        specialType: 'JAMMER',
+        label: '妨害',
+        shortLabel: '💣',
+        name: '妨害ジャマー',
+        badge: '効果発動可',
+        desc: '発動すると、CPUの次の行動（ドロー・奪取）を1ターン完全凍結＆CPUの阻止/シャッフルを1つ破壊！（発動後1枚補充）',
+        accentClass: 'border-rose-400 bg-gradient-to-br from-rose-100 via-pink-50 to-purple-100',
+        textClass: 'text-rose-800',
+        usable: true
+      },
+      LOCK_BREAK: {
+        specialType: 'LOCK_BREAK',
+        label: '強奪',
+        shortLabel: '⚡',
+        name: '貫通スティール',
+        badge: '効果発動可',
+        desc: '発動すると、CPUの「阻止」を貫通してCPUの手札から最も強い1枚を強制奪取！（発動後1枚補充）',
+        accentClass: 'border-purple-400 bg-gradient-to-br from-purple-100 via-fuchsia-50 to-amber-100',
+        textClass: 'text-purple-800',
+        usable: true
+      }
+    };
+
+    function createSpecialCard(typeKey, copyIdx) {
+      const def = SPECIAL_CARD_TYPES[typeKey];
+      return {
+        id: `SP-${typeKey}-${copyIdx}`,
+        isSpecial: true,
+        specialType: typeKey,
+        suit: 'SP',
+        symbol: def.symbol,
+        color: def.textClass,
+        value: typeKey === 'JOKER' ? 15 : 1,
+        label: def.label,
+        name: def.name,
+        desc: def.desc,
+        usable: def.usable
+      };
+    }
+
+    const CPU_LEVELS = {
+      easy: { key: 'easy', label: 'やさしい', stars: '★☆☆☆', badgeClass: 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' },
+      normal: { key: 'normal', label: 'ふつう', stars: '★★☆☆', badgeClass: 'bg-sky-500/20 border-sky-400/40 text-sky-200' },
+      hard: { key: 'hard', label: 'つよい', stars: '★★★☆', badgeClass: 'bg-amber-500/20 border-amber-400/40 text-amber-200' },
+      master: { key: 'master', label: 'たつじん', stars: '★★★★', badgeClass: 'bg-rose-500/20 border-rose-400/40 text-rose-200' }
+    };
+
+    const TARGET_WINS = 3; // 3ゲーム先取
+    const HAND_SIZE = 4;   // 手札上限4枚（絶対に5枚にならない）
+
+    /**
+     * ゲーム状態
+     */
+    const state = {
+      cpuLevel: 'normal',
+      gameMode: 'classic',
+      tournamentStage: 1,
+      matchRecorded: false,
+      hasStartedMatch: false,
+      gameNumber: 1,
+      turnNumber: 1,
+      playerWins: 0,
+      cpuWins: 0,
+      startingPlayer: 'player',
+      activeTurn: 'player',
+      // フェーズ:
+      // 'LEVEL_SELECT' | 'DEALING' | 'PLAYER_DISCARD' | 'PLAYER_POST_DRAW_STEAL' | 'CPU_THINKING' | 'BLOCK_MODAL' | 'GAME_OVER'
+      phase: 'LEVEL_SELECT',
+      deck: [],
+      playerHand: [],
+      cpuHand: [],
+      playerShuffles: 2,
+      cpuShuffles: 2,
+      playerBlocks: 1,
+      cpuBlocks: 1,
+      revealCpuAll: false,
+      cpuJammedTurns: 0,
+      playerJammedTurns: 0,
+      playerPassedThisTurn: false,
+      selectedIndex: null,      // ドロー前の捨て札選択 (0..3)
+      tradeCpuTargetIdx: null,  // 奪取交換で選んだCPU側カード位置 (0..3)
+      tradeGiveIdx: null,       // 奪取交換で相手に渡す自分のカード位置 (0..3)
+      carryOverIndex: 0,
+      pendingCpuSteal: null,    // { cpuTakeIdx, cpuGiveIdx }
+      lastPublicDiscard: null,
+      discardHistory: [],       // 全件履歴 [{ turn, by, card }]
+      // 「たつじん」「つよい」AI用：プレイヤーの手札位置メタデータ
+      // source: 'carry' | 'initial' | 'drawn' | 'traded' | 'unknown'
+      playerSlotMeta: [
+        { knownCard: null, source: 'initial', age: 0 },
+        { knownCard: null, source: 'initial', age: 0 },
+        { knownCard: null, source: 'initial', age: 0 },
+        { knownCard: null, source: 'initial', age: 0 }
+      ],
+      newlyArrivedPlayerIndex: -1,
+      newlyArrivedCpuIndex: -1
+    };
+
+    // DOM参照
+    const el = {
+      flyingLayer: document.getElementById('flying-card-layer'),
+      headerCpuLevelBadge: document.getElementById('header-cpu-level-badge'),
+      playerStars: document.getElementById('player-stars'),
+      cpuStars: document.getElementById('cpu-stars'),
+      btnOpenHistory: document.getElementById('btn-open-history'),
+      historyCountBadge: document.getElementById('history-count-badge'),
+      gameNum: document.getElementById('game-num'),
+      turnNum: document.getElementById('turn-num'),
+      cpuNamePill: document.getElementById('cpu-name-pill'),
+      cpuStatusTag: document.getElementById('cpu-status-tag'),
+      cpuShuffles: document.getElementById('cpu-shuffles'),
+      cpuShieldBadge: document.getElementById('cpu-shield-badge'),
+      cpuHandGrid: document.getElementById('cpu-hand-grid'),
+      cpuSlotLabels: document.getElementById('cpu-slot-labels'),
+      deckVisual: document.getElementById('deck-visual'),
+      deckCount: document.getElementById('deck-count'),
+      publicDiscardVisual: document.getElementById('public-discard-visual'),
+      phaseBadge: document.getElementById('phase-badge'),
+      turnOrderLabel: document.getElementById('turn-order-label'),
+      guideText: document.getElementById('guide-text'),
+      dynamicControls: document.getElementById('dynamic-controls'),
+      liveLog: document.getElementById('live-log'),
+      playerRankBadge: document.getElementById('player-rank-badge'),
+      btnShuffleHand: document.getElementById('btn-shuffle-hand'),
+      playerShuffles: document.getElementById('player-shuffles'),
+      playerShieldBadge: document.getElementById('player-shield-badge'),
+      btnShowdown: document.getElementById('btn-showdown'),
+      playerHandGrid: document.getElementById('player-hand-grid'),
+      playerSlotLabels: document.getElementById('player-slot-labels'),
+      // モーダル
+      modalStartLevel: document.getElementById('modal-start-level'),
+      btnCancelLevel: document.getElementById('btn-cancel-level'),
+      modalBlock: document.getElementById('modal-block'),
+      blockDesc: document.getElementById('block-desc'),
+      blockTargetLabel: document.getElementById('block-target-label'),
+      btnBlockYes: document.getElementById('btn-block-yes'),
+      btnBlockNo: document.getElementById('btn-block-no'),
+      modalHistory: document.getElementById('modal-history'),
+      modalHistoryCount: document.getElementById('modal-history-count'),
+      historySuitSummary: document.getElementById('history-suit-summary'),
+      historyFullList: document.getElementById('history-full-list'),
+      modalRoundResult: document.getElementById('modal-round-result'),
+      resBadge: document.getElementById('res-badge'),
+      resTitle: document.getElementById('res-title'),
+      resSub: document.getElementById('res-sub'),
+      resPlayerStars: document.getElementById('res-player-stars'),
+      resCpuStars: document.getElementById('res-cpu-stars'),
+      resPlayerRank: document.getElementById('res-player-rank'),
+      resCpuRank: document.getElementById('res-cpu-rank'),
+      resPlayerCards: document.getElementById('res-player-cards'),
+      resCpuCards: document.getElementById('res-cpu-cards'),
+      carryoverSection: document.getElementById('carryover-section'),
+      carryoverGrid: document.getElementById('carryover-grid'),
+      btnNextRound: document.getElementById('btn-next-round'),
+      btnNewMatch: document.getElementById('btn-new-match'),
+      modalRules: document.getElementById('modal-rules')
+    };
+
+    const wait = (ms) => new Promise(res => setTimeout(res, ms));
+
+    function shuffleArray(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildShuffledDeck(excludeIds = [], includeSpecials = true) {
+      const cards = [];
+      for (const s of SUITS) {
+        for (const r of RANKS) {
+          const id = `${s.id}-${r.value}`;
+          if (!excludeIds.includes(id)) {
+            cards.push({
+              id,
+              isSpecial: false,
+              suit: s.id,
+              symbol: s.symbol,
+              color: s.color,
+              value: r.value,
+              label: r.label
+            });
+          }
+        }
+      }
+      if (includeSpecials) {
+        const specials = [
+          createSpecialCard('JOKER', 1),
+          createSpecialCard('JOKER', 2),
+          createSpecialCard('EYE', 1),
+          createSpecialCard('EYE', 2),
+          createSpecialCard('JAMMER', 1),
+          createSpecialCard('JAMMER', 2),
+          createSpecialCard('LOCK_BREAK', 1)
+        ];
+        for (const sp of specials) {
+          if (!excludeIds.includes(sp.id)) {
+            cards.push(sp);
+          }
+        }
+      }
+      return shuffleArray(cards);
+    }
+
+    function cardText(c) {
+      return `${c.symbol}${c.label}`;
+    }
+
+    function posLabel(i) {
+      return ['左1(古)', '左2', '右2', '右1(新)'][i] || `${i + 1}枚目`;
+    }
+
+    function renderStars(wins) {
+      return '★'.repeat(wins) + '☆'.repeat(Math.max(0, TARGET_WINS - wins));
+    }
+
+    /**
+     * 飛行ドロー・交換演出
+     */
+    async function animateCardFlight(fromEl, toEl, faceUpCard = null) {
+      if (!fromEl || !toEl) return;
+      const startRect = fromEl.getBoundingClientRect();
+      const endRect = toEl.getBoundingClientRect();
+
+      const skin = getEquippedCardSkin();
+      const flyer = document.createElement('div');
+      flyer.className = `flying-card ${skin.backClass} flex items-center justify-center`;
+      flyer.style.width = `${startRect.width}px`;
+      flyer.style.height = `${startRect.height}px`;
+      flyer.style.left = `${startRect.left}px`;
+      flyer.style.top = `${startRect.top}px`;
+      flyer.innerHTML = `<span class="text-amber-300 font-black text-lg">♠</span>`;
+
+      el.flyingLayer.appendChild(flyer);
+      sfx.playDraw();
+
+      flyer.getBoundingClientRect();
+
+      flyer.style.left = `${endRect.left}px`;
+      flyer.style.top = `${endRect.top}px`;
+      flyer.style.width = `${endRect.width}px`;
+      flyer.style.height = `${endRect.height}px`;
+      flyer.style.transform = 'rotateY(180deg) scale(1.06)';
+
+      if (faceUpCard) {
+        setTimeout(() => {
+          const textCol = getSuitTextColor(faceUpCard);
+          flyer.className = `flying-card ${skin.frontClass} border-2 border-amber-400 p-1.5 flex flex-col justify-between`;
+          flyer.style.transform = 'rotateY(0deg) scale(1.06)';
+          flyer.innerHTML = `
+            <div class="text-left leading-none font-black ${textCol} text-xs sm:text-sm">${faceUpCard.label}${faceUpCard.symbol}</div>
+            <div class="text-xl sm:text-2xl ${textCol} self-center">${faceUpCard.symbol}</div>
+            <div class="text-right leading-none font-black ${textCol} text-xs sm:text-sm rotate-180">${faceUpCard.label}${faceUpCard.symbol}</div>
+          `;
+          sfx.playFlip();
+        }, 230);
+      }
+
+      await wait(460);
+      flyer.style.opacity = '0';
+      await wait(110);
+      flyer.remove();
+    }
+
+    /**
+     * 4カードポーカー正式役判定（4枚時）
+     */
+    function evaluatePure4CardHand(cards) {
+      const sorted = [...cards].sort((a, b) => b.value - a.value);
+      const vals = sorted.map(c => c.value);
+
+      const isFlush = cards.every(c => c.suit === cards[0].suit);
+
+      let isStraight = false;
+      let straightHigh = vals[0];
+      if (
+        vals[0] - 1 === vals[1] &&
+        vals[1] - 1 === vals[2] &&
+        vals[2] - 1 === vals[3]
+      ) {
+        isStraight = true;
+      } else if (vals[0] === 14 && vals[1] === 4 && vals[2] === 3 && vals[3] === 2) {
+        isStraight = true;
+        straightHigh = 4;
+      }
+
+      const counts = {};
+      for (const v of vals) {
+        counts[v] = (counts[v] || 0) + 1;
+      }
+      const groups = Object.entries(counts)
+        .map(([v, cnt]) => ({ value: Number(v), count: cnt }))
+        .sort((a, b) => (b.count !== a.count ? b.count - a.count : b.value - a.value));
+
+      if (isFlush && isStraight && straightHigh === 14) return { level: 9, name: '👑 ロイヤルストレートフラッシュ', tieBreakers: [14] };
+      if (isFlush && isStraight) return { level: 8, name: 'ストレートフラッシュ', tieBreakers: [straightHigh] };
+      if (groups[0].count === 4) return { level: 7, name: 'フォーカード', tieBreakers: [groups[0].value] };
+      if (groups[0].count === 3) return { level: 6, name: 'スリーカード', tieBreakers: [groups[0].value, groups[1].value] };
+      if (isFlush) return { level: 5, name: 'フラッシュ', tieBreakers: vals };
+      if (isStraight) return { level: 4, name: 'ストレート', tieBreakers: [straightHigh] };
+      if (groups[0].count === 2 && groups[1].count === 2) return { level: 3, name: 'ツーペア', tieBreakers: [groups[0].value, groups[1].value] };
+      if (groups[0].count === 2) return { level: 2, name: 'ワンペア', tieBreakers: [groups[0].value, groups[1].value, groups[2].value] };
+      return { level: 1, name: 'ハイカード', tieBreakers: vals };
+    }
+
+    function evaluate4CardHand(hand) {
+      if (!hand || hand.length !== HAND_SIZE) {
+        return { level: 0, name: '判定中', tieBreakers: [] };
+      }
+
+      const cards = hand.slice(0, HAND_SIZE);
+      const jokers = cards.filter(c => c.specialType === 'JOKER');
+      const otherSpecials = cards.filter(c => c.isSpecial && c.specialType !== 'JOKER');
+
+      // 効果発動系特殊カード（透視・妨害・強奪）は役判定上は0扱いのダミー札
+      const normalizedBase = cards
+        .filter(c => c.specialType !== 'JOKER')
+        .map((c, idx) => c.isSpecial ? { suit: `NONE_${idx}`, value: 0 } : c);
+
+      if (jokers.length === 0) {
+        if (otherSpecials.length > 0) {
+          // 特殊札が混ざっている場合は、通常札だけで判定
+          const normals = cards.filter(c => !c.isSpecial);
+          if (normals.length === 0) return { level: 1, name: '特殊札のみ', tieBreakers: [0] };
+          const counts = {};
+          normals.forEach(c => counts[c.value] = (counts[c.value] || 0) + 1);
+          const groups = Object.entries(counts).map(([v, cnt]) => ({ value: Number(v), count: cnt }))
+            .sort((a, b) => (b.count !== a.count ? b.count - a.count : b.value - a.value));
+          const highVals = normals.map(c => c.value).sort((a, b) => b - a);
+          if (groups[0].count === 3) return { level: 6, name: 'スリーカード', tieBreakers: [groups[0].value, highVals[0]] };
+          if (groups[0].count === 2) return { level: 2, name: 'ワンペア', tieBreakers: [groups[0].value, ...highVals] };
+          return { level: 1, name: 'ハイカード', tieBreakers: highVals };
+        }
+        return evaluatePure4CardHand(cards);
+      }
+
+      // ジョーカーが1枚以上ある場合：全52候補から最高役を探索
+      const all52 = [];
+      for (const s of SUITS) {
+        for (const r of RANKS) {
+          all52.push({ suit: s.id, value: r.value });
+        }
+      }
+
+      let bestEval = { level: 0, name: 'ハイカード', tieBreakers: [0] };
+      if (jokers.length === 1) {
+        for (const c1 of all52) {
+          const ev = evaluatePure4CardHand([...normalizedBase, c1]);
+          if (compareHands(ev, bestEval) === 1) bestEval = ev;
+        }
+      } else {
+        // ジョーカー2枚時：計算量削減のため高ランク・同スート候補を中心に高速探索
+        const candValues = new Set([14, 13, 12, 11, 10, 4, 3, 2]);
+        normalizedBase.forEach(c => {
+          if (c.value > 0) {
+            for (let d = -2; d <= 2; d++) {
+              const nv = c.value + d;
+              if (nv >= 2 && nv <= 14) candValues.add(nv);
+            }
+          }
+        });
+        const pruned = [];
+        for (const s of SUITS) {
+          for (const v of candValues) pruned.push({ suit: s.id, value: v });
+        }
+        for (let i = 0; i < pruned.length; i++) {
+          for (let j = i; j < pruned.length; j++) {
+            const ev = evaluatePure4CardHand([...normalizedBase, pruned[i], pruned[j]]);
+            if (compareHands(ev, bestEval) === 1) bestEval = ev;
+          }
+        }
+      }
+
+      return {
+        ...bestEval,
+        name: `🃏 ${bestEval.name}`
+      };
+    }
+
+    function compareHands(evalA, evalB) {
+      if (evalA.level !== evalB.level) return evalA.level > evalB.level ? 1 : -1;
+      for (let i = 0; i < Math.max(evalA.tieBreakers.length, evalB.tieBreakers.length); i++) {
+        const a = evalA.tieBreakers[i] || 0;
+        const b = evalB.tieBreakers[i] || 0;
+        if (a !== b) return a > b ? 1 : -1;
+      }
+      return 0;
+    }
+
+    /**
+     * 新しいゲーム（1ラウンド）開始 & 初期4枚ドロー演出
+     */
+    async function startNewGame(playerCarry = null, cpuCarry = null) {
+      state.hasStartedMatch = true;
+      state.turnNumber = 1;
+      state.phase = 'DEALING';
+      state.playerShuffles = 2;
+      state.cpuShuffles = 2;
+      state.playerBlocks = 1;
+      state.cpuBlocks = 1;
+      state.revealCpuAll = false;
+      state.cpuJammedTurns = 0;
+      state.playerJammedTurns = 0;
+      state.playerPassedThisTurn = false;
+      state.selectedIndex = null;
+      state.tradeCpuTargetIdx = null;
+      state.tradeGiveIdx = null;
+      state.pendingCpuSteal = null;
+      state.lastPublicDiscard = null;
+      state.discardHistory = [];
+      state.newlyArrivedPlayerIndex = -1;
+      state.newlyArrivedCpuIndex = -1;
+
+      el.modalRoundResult.classList.add('hidden');
+      el.modalBlock.classList.add('hidden');
+      el.modalStartLevel.classList.add('hidden');
+
+      const excludeIds = [];
+      if (playerCarry) excludeIds.push(playerCarry.id);
+      if (cpuCarry) excludeIds.push(cpuCarry.id);
+
+      state.deck = buildShuffledDeck(excludeIds);
+      state.playerHand = playerCarry ? [playerCarry] : [];
+      state.cpuHand = cpuCarry ? [cpuCarry] : [];
+
+      state.playerSlotMeta = playerCarry
+        ? [{ knownCard: null, source: 'carry', age: 1 }]
+        : [];
+
+      const lvInfo = CPU_LEVELS[state.cpuLevel];
+      setGuide('配布フェーズ', `CPU[${lvInfo.label}]と対戦開始！山札をシャッフルして4枚ずつ配っています...`);
+      el.dynamicControls.innerHTML = '';
+      renderAll();
+
+      // 交互に4枚までドロー演出
+      while (state.playerHand.length < HAND_SIZE || state.cpuHand.length < HAND_SIZE) {
+        if (state.playerHand.length < HAND_SIZE) {
+          const card = state.deck.pop();
+          const targetSlot = el.playerHandGrid.children[state.playerHand.length] || el.playerHandGrid;
+          await animateCardFlight(el.deckVisual, targetSlot, card);
+          state.playerHand.push(card);
+          state.playerSlotMeta.push({ knownCard: null, source: 'initial', age: 0 });
+          state.newlyArrivedPlayerIndex = state.playerHand.length - 1;
+          renderAll();
+          await wait(95);
+        }
+        if (state.cpuHand.length < HAND_SIZE) {
+          const card = state.deck.pop();
+          const targetSlot = el.cpuHandGrid.children[state.cpuHand.length] || el.cpuHandGrid;
+          await animateCardFlight(el.deckVisual, targetSlot, null);
+          state.cpuHand.push(card);
+          state.newlyArrivedCpuIndex = state.cpuHand.length - 1;
+          renderAll();
+          await wait(95);
+        }
+      }
+
+      state.newlyArrivedPlayerIndex = -1;
+      state.newlyArrivedCpuIndex = -1;
+      state.activeTurn = state.startingPlayer;
+
+      if (playerCarry) {
+        setLog(`第${state.gameNumber}ゲーム開始！持ち越し「${cardText(playerCarry)}」＋3枚ドロー完了（手札4枚上限）。`);
+      } else {
+        setLog(`第${state.gameNumber}ゲーム開始！山札から4枚ずつドロー完了（左から取得順固定）。`);
+      }
+
+      beginTurn();
+    }
+
+    /**
+     * ターン開始処理
+     */
+    function beginTurn() {
+      state.selectedIndex = null;
+      state.tradeCpuTargetIdx = null;
+      state.tradeGiveIdx = null;
+      state.newlyArrivedPlayerIndex = -1;
+      state.newlyArrivedCpuIndex = -1;
+
+      if (state.activeTurn === 'player') {
+        if (state.playerJammedTurns > 0) {
+          state.playerJammedTurns--;
+          el.cpuStatusTag.textContent = '待機中';
+          setGuide('💣 妨害ジャマー凍結中', 'CPUの妨害カードにより、このターンの行動が凍結されました！');
+          setLog('💣 妨害ジャマーの効果であなたの行動が1ターン凍結されました！');
+          renderAll();
+          setTimeout(() => endTurn(), 1150);
+          return;
+        }
+        el.cpuStatusTag.textContent = '待機中';
+
+        if (state.turnNumber === 1) {
+          // 1ターン目：初期4枚ドロー済みなので「揃った！」または「1対1奪取交換」
+          state.phase = 'PLAYER_POST_DRAW_STEAL';
+          setGuide(
+            'あなたのターン (1T目：1対1奪取交換 / 勝負)',
+            '初期4枚ドロー済み！今の役で「🔥 揃った！」宣言をするか、相手と1枚ずつ「奪取交換」してください。'
+          );
+          renderDynamicButtons();
+          renderAll();
+        } else {
+          // 2ターン目以降：まず1枚公開して山札に戻し、1枚ドロー（4枚維持）
+          state.phase = 'PLAYER_DISCARD';
+          setGuide(
+            `あなたのターン (${state.turnNumber}T目：①交換ドロー)`,
+            '手札から捨てる1枚を選択してください（公開して山札に戻し、新たに1枚ドローします）。'
+          );
+          renderDynamicButtons();
+          renderAll();
+        }
+      } else {
+        // CPUのターン
+        state.phase = 'CPU_THINKING';
+        el.cpuStatusTag.textContent = '思考・行動中...';
+        setGuide(
+          `CPU(${CPU_LEVELS[state.cpuLevel].label})のターン (${state.turnNumber}T目)`,
+          'CPUが行動しています...'
+        );
+        el.dynamicControls.innerHTML = '';
+        renderAll();
+        setTimeout(executeCpuTurn, 720);
+      }
+    }
+
+    function setGuide(badge, text) {
+      el.phaseBadge.textContent = badge;
+      el.guideText.textContent = text;
+    }
+
+    function setLog(msg) {
+      el.liveLog.textContent = msg;
+    }
+
+    /**
+     * フェーズごとのアクションボタン描画
+     */
+    window.handlePlayerPass = async function() {
+      if (state.phase !== 'PLAYER_DISCARD') return;
+      state.phase = 'DEALING';
+      state.selectedIndex = null;
+      el.dynamicControls.innerHTML = '';
+      setLog(`プレイヤーがパスしました（カード交換・ドローをスキップしてCPUのターンへ）。`);
+      sfx.playFlip();
+      renderAll();
+      await wait(600);
+      endTurn();
+    };
+
+    window.handleActivateSpecialCard = async function(idx) {
+      if (!['PLAYER_DISCARD', 'PLAYER_POST_DRAW_STEAL'].includes(state.phase)) return;
+      const card = state.playerHand[idx];
+      if (!card || !card.isSpecial || !card.usable) return;
+
+      const prevPhase = state.phase;
+      state.phase = 'DEALING';
+      state.selectedIndex = null;
+      state.tradeGiveIdx = null;
+      el.dynamicControls.innerHTML = '';
+
+      state.playerHand.splice(idx, 1);
+      state.playerSlotMeta.splice(idx, 1);
+      recordPublicDiscard(card, 'あなた');
+      sfx.playSteal();
+
+      if (card.specialType === 'EYE') {
+        state.revealCpuAll = true;
+        setLog('👁️ 特殊カード「全透視アイ」発動！このゲーム中、CPUの手札4枚がすべて表向きで見えるようになりました！');
+      } else if (card.specialType === 'JAMMER') {
+        state.cpuJammedTurns = 1;
+        let extraMsg = '';
+        if (state.cpuBlocks > 0) {
+          state.cpuBlocks = 0;
+          extraMsg = '＆CPUの「🛡️阻止」を破壊！';
+        } else if (state.cpuShuffles > 0) {
+          state.cpuShuffles--;
+          extraMsg = '＆CPUの位置シャッフルを1回破壊！';
+        }
+        setLog(`💣 特殊カード「妨害ジャマー」発動！CPUの次ターン行動を完全凍結${extraMsg}`);
+      } else if (card.specialType === 'LOCK_BREAK') {
+        // 貫通スティール：CPUの最強札を阻止不可で奪取し、CPUには山札から1枚補充
+        let bestCIdx = 0;
+        for (let i = 1; i < state.cpuHand.length; i++) {
+          if (state.cpuHand[i].value > state.cpuHand[bestCIdx].value) bestCIdx = i;
+        }
+        const stolen = state.cpuHand.splice(bestCIdx, 1)[0];
+        if (state.deck.length === 0) state.deck = buildShuffledDeck([], false);
+        const cpuRefill = state.deck.pop();
+        if (cpuRefill) state.cpuHand.push(cpuRefill);
+
+        state.playerHand.push(stolen);
+        state.playerSlotMeta.push({ knownCard: stolen, source: 'traded', age: state.turnNumber });
+        state.newlyArrivedPlayerIndex = state.playerHand.length - 1;
+        setLog(`⚡ 特殊カード「貫通スティール」発動！CPUの阻止を貫通して「${cardText(stolen)}」を強奪しました！`);
+      }
+
+      // プレイヤー手札が4枚未満なら山札から1枚自動補充
+      if (state.playerHand.length < HAND_SIZE) {
+        if (state.deck.length === 0) state.deck = buildShuffledDeck([], false);
+        const drawn = state.deck.pop();
+        const targetSlot = el.playerHandGrid.children[3] || el.playerHandGrid;
+        await animateCardFlight(el.deckVisual, targetSlot, drawn);
+        state.playerHand.push(drawn);
+        state.playerSlotMeta.push({ knownCard: null, source: 'drawn', age: state.turnNumber });
+        state.newlyArrivedPlayerIndex = 3;
+      }
+
+      state.phase = prevPhase;
+      renderDynamicButtons();
+      renderAll();
+    };
+
+    function renderDynamicButtons() {
+      el.dynamicControls.innerHTML = '';
+
+      // 手札に発動可能な特殊カード（全透視アイ・妨害ジャマー・貫通スティール）があれば即時発動ボタンを表示
+      const usableSpecialsHTML = state.playerHand
+        .map((c, idx) => ({ c, idx }))
+        .filter(x => x.c.isSpecial && x.c.usable)
+        .map(x => `
+          <button type="button" onclick="handleActivateSpecialCard(${x.idx})"
+            class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400 hover:brightness-110 text-slate-950 text-xs font-black shadow-lg transition flex items-center gap-1 animate-pulse">
+            <span>${x.c.symbol} 「${x.c.name}」を発動！</span>
+          </button>
+        `).join('');
+
+      if (state.phase === 'PLAYER_DISCARD') {
+        const hasSel = state.selectedIndex !== null;
+        const name = hasSel ? cardText(state.playerHand[state.selectedIndex]) : '';
+        el.dynamicControls.innerHTML = `
+          <button type="button" id="btn-do-discard-draw" ${hasSel ? '' : 'disabled'}
+            class="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:pointer-events-none text-slate-950 text-xs sm:text-sm font-black shadow transition flex items-center gap-1.5">
+            <span>🃏 ${hasSel ? `「${name}」を公開戻し ＆ 1枚ドロー` : '山札に戻すカードを1枚選択'}</span>
+          </button>
+          <button type="button" onclick="handlePlayerPass()"
+            class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-black shadow transition flex items-center gap-1">
+            <span>✋ パスする (引かずにターン終了)</span>
+          </button>
+          ${usableSpecialsHTML}
+        `;
+        const btn = document.getElementById('btn-do-discard-draw');
+        if (btn) btn.addEventListener('click', handleDiscardAndDraw);
+      } else if (state.phase === 'PLAYER_POST_DRAW_STEAL') {
+        const hasTarget = state.tradeCpuTargetIdx !== null;
+        const hasGive = state.tradeGiveIdx !== null;
+        const ready = hasTarget && hasGive;
+
+        const targetStr = hasTarget ? `相手:${posLabel(state.tradeCpuTargetIdx)}` : '①上の相手1枚';
+        const giveStr = hasGive ? `自分:${cardText(state.playerHand[state.tradeGiveIdx])}` : '②下の自分1枚';
+
+        el.dynamicControls.innerHTML = `
+          <button type="button" id="btn-do-trade-steal" ${ready ? '' : 'disabled'}
+            class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-45 disabled:pointer-events-none text-slate-950 text-xs sm:text-sm font-black shadow transition flex items-center gap-1.5">
+            <span>⚡ ${ready ? `奪取交換を実行 (${targetStr} ⇄ ${giveStr})` : `1対1奪取交換を選択 (${targetStr} / ${giveStr})`}</span>
+          </button>
+          ${usableSpecialsHTML}
+        `;
+        const btn = document.getElementById('btn-do-trade-steal');
+        if (btn) btn.addEventListener('click', handleExecutePlayerTradeSteal);
+      }
+    }
+
+    /**
+     * プレイヤー：位置シャッフル（1ゲーム2回まで）
+     */
+    function handlePlayerShuffle() {
+      if (state.playerShuffles <= 0 || state.gameMode === 'special') return;
+      if (!['PLAYER_DISCARD', 'PLAYER_POST_DRAW_STEAL'].includes(state.phase)) return;
+
+      state.playerShuffles--;
+      state.selectedIndex = null;
+      state.tradeGiveIdx = null;
+
+      const before = state.playerHand.map(c => c.id).join(',');
+      let shuffled = shuffleArray(state.playerHand);
+      if (shuffled.map(c => c.id).join(',') === before && shuffled.length > 1) {
+        shuffled = [...shuffled.slice(1), shuffled[0]];
+      }
+      state.playerHand = shuffled;
+
+      // CPU側の位置記憶とソース追跡をリセット
+      state.playerSlotMeta = state.playerHand.map(() => ({
+        knownCard: null,
+        source: 'unknown',
+        age: 0
+      }));
+
+      sfx.playFlip();
+      setLog(`🔀 位置シャッフル発動！手札の並び順をランダムに入れ替えました（残り${state.playerShuffles}回）。`);
+      renderDynamicButtons();
+      renderAll(true);
+    }
+
+    /**
+     * プレイヤー：自分の手札をクリック
+     */
+    window.onPlayerCardClick = function(idx) {
+      if (state.phase === 'PLAYER_DISCARD') {
+        state.selectedIndex = idx;
+        sfx.playFlip();
+        renderDynamicButtons();
+        renderAll();
+      } else if (state.phase === 'PLAYER_POST_DRAW_STEAL') {
+        state.tradeGiveIdx = (state.tradeGiveIdx === idx) ? null : idx;
+        sfx.playFlip();
+        renderDynamicButtons();
+        renderAll();
+      }
+    };
+
+    /**
+     * プレイヤー：CPUの手札をクリック（奪う対象を選択）
+     */
+    window.onCpuCardClick = function(idx) {
+      if (state.phase !== 'PLAYER_POST_DRAW_STEAL') return;
+      state.tradeCpuTargetIdx = (state.tradeCpuTargetIdx === idx) ? null : idx;
+      sfx.playFlip();
+      renderDynamicButtons();
+      renderAll();
+    };
+
+    /**
+     * プレイヤー：1枚公開して山札へ戻し、1枚ドロー（4枚維持）
+     */
+    async function handleDiscardAndDraw() {
+      if (state.phase !== 'PLAYER_DISCARD' || state.selectedIndex === null) return;
+
+      const discardIdx = state.selectedIndex;
+      const discarded = state.playerHand.splice(discardIdx, 1)[0];
+      state.playerSlotMeta.splice(discardIdx, 1);
+      state.selectedIndex = null;
+      state.phase = 'DEALING';
+      el.dynamicControls.innerHTML = '';
+
+      recordPublicDiscard(discarded, 'あなた');
+      state.deck.push(discarded);
+      state.deck = shuffleArray(state.deck);
+      renderAll();
+
+      // 山札から新カードを1枚ドロー演出（3枚 + 1枚 = 4枚）
+      const drawn = state.deck.pop();
+      const targetSlot = el.playerHandGrid.children[3] || el.playerHandGrid;
+      await animateCardFlight(el.deckVisual, targetSlot, drawn);
+
+      state.playerHand.push(drawn);
+      state.playerSlotMeta.push({ knownCard: null, source: 'drawn', age: state.turnNumber });
+      state.newlyArrivedPlayerIndex = 3;
+
+      setLog(`「${cardText(discarded)}」を公開して山札へ戻し、「${cardText(drawn)}」をドロー！続いて1対1の奪取交換ができます。`);
+
+      // ドロー後の1対1奪取交換フェーズへ
+      state.phase = 'PLAYER_POST_DRAW_STEAL';
+      setGuide(
+        `あなたのターン (${state.turnNumber}T目：②ドロー後の1対1奪取交換)`,
+        '①奪う相手カード(上)と②渡す自分カード(下)を1枚ずつ選んで交換（または「🔥 揃った！」宣言）。'
+      );
+      renderDynamicButtons();
+      renderAll();
+    }
+
+    /**
+     * 公開捨て札の記録と履歴更新（全件保持）
+     */
+    function recordPublicDiscard(card, byWho) {
+      state.lastPublicDiscard = { card, by: byWho };
+      state.discardHistory.push({
+        turn: state.turnNumber,
+        by: byWho,
+        card
+      });
+    }
+
+    /**
+     * プレイヤー：1対1の奪取交換を実行（お互い4枚のまま、絶対に5枚にならない）
+     */
+    async function handleExecutePlayerTradeSteal() {
+      if (
+        state.phase !== 'PLAYER_POST_DRAW_STEAL' ||
+        state.tradeCpuTargetIdx === null ||
+        state.tradeGiveIdx === null
+      ) return;
+
+      const cpuIdx = state.tradeCpuTargetIdx;
+      const giveIdx = state.tradeGiveIdx;
+      const posName = posLabel(cpuIdx);
+
+      state.phase = 'DEALING';
+      el.dynamicControls.innerHTML = '';
+
+      // CPUの阻止判定
+      if (shouldCpuBlock(cpuIdx)) {
+        state.cpuBlocks--;
+        state.tradeCpuTargetIdx = null;
+        state.tradeGiveIdx = null;
+        sfx.playShield();
+        setLog(`🛡️ CPUが「阻止」を使用！あなたの奪取交換（${posName}のカード）は防がれました（手札4枚維持）。`);
+        renderAll();
+        await wait(750);
+        endTurn();
+        return;
+      }
+
+      // 奪取交換成立：互いの1枚を抜き取り、それぞれの右端（最新位置）へ入れる
+      const cpuCard = state.cpuHand.splice(cpuIdx, 1)[0];
+      const playerGiveCard = state.playerHand.splice(giveIdx, 1)[0];
+      state.playerSlotMeta.splice(giveIdx, 1);
+
+      const cpuFromEl = el.cpuHandGrid.children[cpuIdx] || el.cpuHandGrid;
+      const playerFromEl = el.playerHandGrid.children[giveIdx] || el.playerHandGrid;
+
+      sfx.playSteal();
+      await Promise.all([
+        animateCardFlight(cpuFromEl, el.playerHandGrid, cpuCard),
+        animateCardFlight(playerFromEl, el.cpuHandGrid, null)
+      ]);
+
+      // 取得順固定ルールに基づき、新しく得たカードは右端（index 3）に追加
+      state.playerHand.push(cpuCard);
+      state.playerSlotMeta.push({ knownCard: cpuCard, source: 'traded', age: state.turnNumber });
+      state.newlyArrivedPlayerIndex = 3;
+
+      state.cpuHand.push(playerGiveCard);
+      state.newlyArrivedCpuIndex = 3;
+
+      state.tradeCpuTargetIdx = null;
+      state.tradeGiveIdx = null;
+
+      setLog(`⚡ 奪取交換成立！CPUの「${posName}(${cardText(cpuCard)})」を奪い、代わりに「${cardText(playerGiveCard)}」を渡しました（お互い4枚）。`);
+      renderAll();
+      await wait(650);
+      endTurn();
+    }
+
+    /**
+     * =========================================================================
+     * 4段階CPU AIロジック（やさしい / ふつう / つよい / たつじん）
+     * =========================================================================
+     */
+
+    /**
+     * 山札＋相手手札（未知領域）に残っているカードの集合を取得（「たつじん」カウンティング用）
+     */
+    function getUnseenCardPool() {
+      const knownIds = new Set();
+      for (const c of state.cpuHand) knownIds.add(c.id);
+      for (const item of state.discardHistory) knownIds.add(item.card.id);
+      for (const meta of state.playerSlotMeta) {
+        if (meta.knownCard) knownIds.add(meta.knownCard.id);
+      }
+      const all = buildShuffledDeck([], true);
+      return all.filter(c => !knownIds.has(c.id));
+    }
+
+    /**
+     * 3枚＋未知カード1枚を引いた時の期待値スコア算出（強化版）
+     */
+    function evaluateThreeCardPotential(threeCards, unseenPool, useExactCounting) {
+      let totalScore = 0;
+      const sample = useExactCounting ? unseenPool : buildShuffledDeck(threeCards.map(c => c.id), true);
+      if (sample.length === 0) return 0;
+
+      for (const extra of sample) {
+        const ev = evaluate4CardHand([...threeCards, extra]);
+        // ジョーカーや高役への期待値を精密評価
+        let bonus = 0;
+        if (ev.level >= 7) bonus += 220;
+        else if (ev.level >= 5) bonus += 110;
+        else if (ev.level >= 3) bonus += 45;
+        totalScore += ev.level * 120 + (ev.tieBreakers[0] || 0) * 2 + bonus;
+      }
+      return totalScore / sample.length;
+    }
+
+    /**
+     * CPUの捨て札インデックス選択（全難易度強化版：ジョーカーは絶対に捨てない）
+     */
+    function chooseCpuDiscardIndex(handRef = state.cpuHand) {
+      const lv = state.cpuLevel;
+
+      // ジョーカー以外の候補インデックス
+      const nonJokerIndices = handRef
+        .map((c, idx) => ({ c, idx }))
+        .filter(x => x.c.specialType !== 'JOKER')
+        .map(x => x.idx);
+      const candidates = nonJokerIndices.length > 0 ? nonJokerIndices : [0];
+
+      // 1. やさしい：以前より賢く、低い数字や孤立札を優先して捨てる
+      if (lv === 'easy') {
+        if (Math.random() < 0.25) {
+          return candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        let minIdx = candidates[0];
+        for (const i of candidates) {
+          if (handRef[i].value < handRef[minIdx].value) minIdx = i;
+        }
+        return minIdx;
+      }
+
+      // 2. ふつう：ペア・スリーカード・同スート3枚・連番を温存して最弱札を切る
+      if (lv === 'normal') {
+        const counts = {};
+        const suits = {};
+        for (const c of handRef) {
+          if (!c.isSpecial) {
+            counts[c.value] = (counts[c.value] || 0) + 1;
+            suits[c.suit] = (suits[c.suit] || 0) + 1;
+          }
+        }
+        let worstIdx = candidates[0];
+        let worstScore = Infinity;
+        for (const i of candidates) {
+          const c = handRef[i];
+          let score = c.isSpecial ? 5 : c.value;
+          if (!c.isSpecial && counts[c.value] >= 2) score += counts[c.value] * 40;
+          if (!c.isSpecial && suits[c.suit] >= 3) score += 28;
+          if (score < worstScore) {
+            worstScore = score;
+            worstIdx = i;
+          }
+        }
+        return worstIdx;
+      }
+
+      // 3. つよい & 4. たつじん：完全期待値モンテカルロ／全列挙評価で最適捨て札を選択
+      const useExact = lv === 'master';
+      const unseenPool = useExact ? getUnseenCardPool() : [];
+      let bestDiscardIdx = candidates[0];
+      let bestRemainPotential = -Infinity;
+
+      for (const i of candidates) {
+        const remain3 = handRef.filter((_, idx) => idx !== i);
+        const pot = evaluateThreeCardPotential(remain3, unseenPool, useExact);
+        if (pot > bestRemainPotential) {
+          bestRemainPotential = pot;
+          bestDiscardIdx = i;
+        }
+      }
+      return bestDiscardIdx;
+    }
+
+    /**
+     * CPUの「揃った！」宣言判定（強化版：4ターン目以降の勝率判断を精密化）
+     */
+    function shouldCpuDeclareShowdown(evalRes, phaseTiming) {
+      const lv = state.cpuLevel;
+      const t = state.turnNumber;
+
+      // 全モード共通：最初の3ターンは両者とも「揃った！」宣言禁止。
+      if (t <= 3) return false;
+
+      // ジョーカー持ちでスリーカード以上なら即勝負
+      const hasJoker = state.cpuHand.some(c => c.specialType === 'JOKER');
+      if (hasJoker && evalRes.level >= 6) return true;
+
+      if (lv === 'easy') {
+        if (evalRes.level >= 3 && Math.random() < 0.85) return true;
+        if (evalRes.level === 2 && evalRes.tieBreakers[0] >= 12 && t >= 5) return true;
+        return false;
+      }
+
+      if (lv === 'normal') {
+        if (evalRes.level >= 3) return true;
+        if (evalRes.level === 2 && evalRes.tieBreakers[0] >= 11 && t >= 4) return true;
+        if (evalRes.level === 2 && t >= 6) return true;
+        return false;
+      }
+
+      if (lv === 'hard') {
+        if (evalRes.level >= 3) return true;
+        if (evalRes.level === 2 && evalRes.tieBreakers[0] >= 10 && t >= 4) return true;
+        if (evalRes.level === 2 && t >= 5) return true;
+        return false;
+      }
+
+      // たつじん：プレイヤーの公開・既知情報も加味した最適勝負宣言
+      if (evalRes.level >= 3) return true;
+      if (evalRes.level === 2 && evalRes.tieBreakers[0] >= 10 && t >= 4) return true;
+      if (evalRes.level === 2 && t >= 5) return true;
+      return false;
+    }
+
+    /**
+     * CPUの奪取交換ターゲット選択（強化版：既知情報＋危険位置読み＋ジョーカー強奪狙い）
+     */
+    function chooseCpuTradeIndices() {
+      const lv = state.cpuLevel;
+      const giveIdx = chooseCpuDiscardIndex(state.cpuHand);
+      let takeIdx = Math.floor(Math.random() * HAND_SIZE);
+
+      // 既知カード（透視・トレード済みなど）にジョーカーやペア完成札があれば全レベルで優先奪取
+      for (let i = 0; i < HAND_SIZE; i++) {
+        const known = state.playerSlotMeta[i]?.knownCard;
+        if (!known) continue;
+        if (known.specialType === 'JOKER') return { takeIdx: i, giveIdx };
+        if (lv !== 'easy' && (known.value >= 12 || state.cpuHand.some(c => !c.isSpecial && c.value === known.value))) {
+          return { takeIdx: i, giveIdx };
+        }
+      }
+
+      if (lv === 'easy') {
+        takeIdx = Math.random() < 0.65 ? 3 : Math.floor(Math.random() * HAND_SIZE);
+        return { takeIdx, giveIdx };
+      }
+
+      if (lv === 'normal') {
+        const priorityIdx = state.playerSlotMeta.findIndex(m => m.source === 'carry' || m.source === 'drawn');
+        takeIdx = priorityIdx !== -1 ? priorityIdx : 3;
+        return { takeIdx, giveIdx };
+      }
+
+      // つよい & たつじん：全スロットを危険度スコアリングして最も重要な位置をピンポイント奪取
+      let bestScore = -Infinity;
+      for (let i = 0; i < HAND_SIZE; i++) {
+        const meta = state.playerSlotMeta[i];
+        let danger = 12 + i * 4;
+
+        if (meta.knownCard) {
+          if (meta.knownCard.specialType === 'JOKER') danger += 200;
+          else {
+            const helpsCpu = state.cpuHand.some(c => !c.isSpecial && c.value === meta.knownCard.value);
+            danger += helpsCpu ? 95 : meta.knownCard.value * 4;
+          }
+        } else {
+          if (meta.source === 'carry') danger += 55;
+          if (meta.source === 'drawn') danger += 38;
+          if (meta.source === 'initial' && state.turnNumber >= 2) danger += 26;
+        }
+
+        if (danger > bestScore) {
+          bestScore = danger;
+          takeIdx = i;
+        }
+      }
+
+      return { takeIdx, giveIdx };
+    }
+
+    /**
+     * CPUの阻止判定（強化版：ジョーカーや重要役構成札は確実に死守）
+     */
+    function shouldCpuBlock(targetIdx) {
+      if (state.cpuBlocks <= 0) return false;
+      const lv = state.cpuLevel;
+      const evalRes = evaluate4CardHand(state.cpuHand);
+      const card = state.cpuHand[targetIdx];
+      if (!card) return false;
+
+      // ジョーカーを狙われたら全レベルで絶対阻止
+      if (card.specialType === 'JOKER') return true;
+
+      if (lv === 'easy') {
+        if (evalRes.level >= 2 && Math.random() < 0.6) return true;
+        return Math.random() < 0.35;
+      }
+
+      if (lv === 'normal') {
+        if (evalRes.level >= 3) return true;
+        if (evalRes.level === 2 && card.value === evalRes.tieBreakers[0]) return true;
+        if (card.value >= 13) return true;
+        return false;
+      }
+
+      // つよい & たつじん：奪われた後の期待値落差を厳密計算して阻止
+      const currentVal = evalRes.level * 120 + (evalRes.tieBreakers[0] || 0) * 2;
+      const remain3 = state.cpuHand.filter((_, i) => i !== targetIdx);
+      const afterPot = evaluateThreeCardPotential(remain3, getUnseenCardPool(), true);
+      if (evalRes.level >= 3) return true;
+      if (currentVal - afterPot > 50) return true;
+      return false;
+    }
+
+    /**
+     * CPUが特殊カード（透視・妨害・貫通スティール）を所持していれば自動発動
+     */
+    async function tryCpuUseSpecialCards() {
+      if (state.cpuLevel === 'easy' && Math.random() < 0.35) return;
+
+      while (true) {
+        const spIdx = state.cpuHand.findIndex(c => c.isSpecial && c.usable);
+        if (spIdx === -1) break;
+
+        const spCard = state.cpuHand.splice(spIdx, 1)[0];
+        recordPublicDiscard(spCard, 'CPU');
+        sfx.playSteal();
+
+        if (spCard.specialType === 'EYE') {
+          // CPUが全透視アイを使用 → プレイヤーの手札4枚すべてをCPU側AIの既知情報に登録！
+          state.playerHand.forEach((c, i) => {
+            state.playerSlotMeta[i] = { knownCard: c, source: 'revealed', age: state.turnNumber };
+          });
+          setLog(`👁️ CPUが特殊カード「全透視アイ」を発動！あなたの手札4枚がすべて見抜かれました！`);
+        } else if (spCard.specialType === 'JAMMER') {
+          state.playerJammedTurns = 1;
+          if (state.playerBlocks > 0) {
+            state.playerBlocks = 0;
+            setLog(`💣 CPUが特殊カード「妨害ジャマー」を発動！あなたの次ターン行動凍結＆「🛡️阻止」が破壊されました！`);
+          } else if (state.playerShuffles > 0) {
+            state.playerShuffles--;
+            setLog(`💣 CPUが特殊カード「妨害ジャマー」を発動！あなたの次ターン行動凍結＆位置シャッフルが1回減少！`);
+          } else {
+            setLog(`💣 CPUが特殊カード「妨害ジャマー」を発動！あなたの次の行動が1ターン凍結されます！`);
+          }
+        } else if (spCard.specialType === 'LOCK_BREAK') {
+          // 貫通スティール：プレイヤーの最強札（ジョーカーまたは最大値）を阻止無視で奪い、山札から補充
+          let bestPIdx = 0;
+          for (let i = 1; i < state.playerHand.length; i++) {
+            if (state.playerHand[i].value > state.playerHand[bestPIdx].value) bestPIdx = i;
+          }
+          const stolen = state.playerHand.splice(bestPIdx, 1)[0];
+          state.playerSlotMeta.splice(bestPIdx, 1);
+          const refillPlayer = state.deck.pop();
+          if (refillPlayer) {
+            state.playerHand.push(refillPlayer);
+            state.playerSlotMeta.push({ knownCard: null, source: 'drawn', age: state.turnNumber });
+          }
+          state.cpuHand.push(stolen);
+          setLog(`⚡ CPUが特殊カード「貫通スティール」を発動！阻止を貫通して「${cardText(stolen)}」を強奪しました！`);
+        }
+
+        // CPUの手札を山札から1枚補充して4枚維持
+        if (state.cpuHand.length < HAND_SIZE) {
+          if (state.deck.length === 0) state.deck = buildShuffledDeck([], false);
+          const drawn = state.deck.pop();
+          state.cpuHand.push(drawn);
+        }
+        renderAll();
+        await wait(700);
+      }
+    }
+
+    /**
+     * CPUのターン実行フロー（強化版）
+     */
+    async function executeCpuTurn() {
+      if (state.phase === 'GAME_OVER') return;
+      const lv = state.cpuLevel;
+
+      // 妨害ジャマーによる凍結チェック
+      if (state.cpuJammedTurns > 0) {
+        state.cpuJammedTurns--;
+        el.cpuStatusTag.textContent = '💣 妨害凍結中！';
+        setLog(`💣 CPUは「妨害ジャマー」の効果で行動が凍結され、ターンをスキップしました！`);
+        renderAll();
+        await wait(900);
+        endTurn();
+        return;
+      }
+
+      // 特殊カード（透視・妨害・貫通スティール）があれば優先発動
+      await tryCpuUseSpecialCards();
+
+      // ターン開始時の「揃った！」チェック
+      const startEval = evaluate4CardHand(state.cpuHand);
+      if (shouldCpuDeclareShowdown(startEval, 'start')) {
+        triggerShowdown('cpu');
+        return;
+      }
+
+      // 2ターン目以降：「1枚公開して山札に戻す → 1枚ドロー（4枚維持）」
+      if (state.turnNumber >= 2) {
+        el.cpuStatusTag.textContent = 'カード交換・ドロー中...';
+        const discIdx = chooseCpuDiscardIndex(state.cpuHand);
+        const discarded = state.cpuHand.splice(discIdx, 1)[0];
+
+        recordPublicDiscard(discarded, 'CPU');
+        state.deck.push(discarded);
+        state.deck = shuffleArray(state.deck);
+        renderAll();
+        await wait(340);
+
+        el.cpuStatusTag.textContent = 'ドロー中...';
+        const drawn = state.deck.pop();
+        const targetSlot = el.cpuHandGrid.children[3] || el.cpuHandGrid;
+        await animateCardFlight(el.deckVisual, targetSlot, null);
+        state.cpuHand.push(drawn);
+        state.newlyArrivedCpuIndex = 3;
+
+        setLog(`CPUは「${cardText(discarded)}」を公開戻しし、山札から1枚ドロー（手札4枚）しました。`);
+        renderAll();
+        await wait(400);
+
+        // ドロー直後に特殊カードを引いたら即発動
+        await tryCpuUseSpecialCards();
+      }
+
+      // ドロー後の「揃った！」チェック
+      const postDrawEval = evaluate4CardHand(state.cpuHand);
+      if (shouldCpuDeclareShowdown(postDrawEval, 'post_draw')) {
+        triggerShowdown('cpu');
+        return;
+      }
+
+      // 位置シャッフル判断（強化版：良い手が揃った時ほど位置を隠す）
+      const shuffleProb = lv === 'easy' ? 0.3 : lv === 'normal' ? 0.55 : lv === 'hard' ? 0.75 : 0.9;
+      if (state.gameMode !== 'special' && state.cpuShuffles > 0 && postDrawEval.level >= 2 && Math.random() < shuffleProb) {
+        state.cpuShuffles--;
+        state.cpuHand = shuffleArray(state.cpuHand);
+        sfx.playFlip();
+        setLog(`🔀 CPU(${CPU_LEVELS[lv].label})が「位置シャッフル」を使用！並びを隠しました（CPU残り${state.cpuShuffles}回）。`);
+        renderAll(true);
+        await wait(480);
+      }
+
+      // ドロー後の1対1奪取交換ステップへ
+      el.cpuStatusTag.textContent = '奪取交換を狙っています...';
+      const { takeIdx, giveIdx } = chooseCpuTradeIndices();
+      state.pendingCpuSteal = { cpuTakeIdx: takeIdx, cpuGiveIdx: giveIdx };
+
+      // プレイヤーに阻止権があれば確認モーダル表示
+      if (state.playerBlocks > 0) {
+        state.phase = 'BLOCK_MODAL';
+        const posName = posLabel(takeIdx);
+        const targetCard = state.playerHand[takeIdx];
+        el.blockDesc.innerHTML = `CPU(${CPU_LEVELS[lv].label})がドロー後の奪取交換で、あなたの <strong class="text-amber-300">「${posName}のカード」</strong> を狙っています！<br>1ゲーム1回限りの「阻止」を使いますか？`;
+        el.blockTargetLabel.textContent = `${cardText(targetCard)}（${posName}）`;
+        el.modalBlock.classList.remove('hidden');
+        renderAll();
+      } else {
+        await resolveCpuSteal(false);
+      }
+    }
+
+    /**
+     * CPUの1対1奪取交換の解決
+     */
+    async function resolveCpuSteal(blocked) {
+      el.modalBlock.classList.add('hidden');
+      const { cpuTakeIdx, cpuGiveIdx } = state.pendingCpuSteal;
+      const posName = posLabel(cpuTakeIdx);
+
+      if (blocked) {
+        state.playerBlocks--;
+        sfx.playShield();
+        setLog(`🛡️ あなたは「阻止」を発動！CPUの奪取交換（${posName}のカード）を防ぎました！`);
+        renderAll();
+        await wait(650);
+        endTurn();
+        return;
+      }
+
+      // 1対1交換実行（お互い4枚のまま）
+      const stolenFromPlayer = state.playerHand.splice(cpuTakeIdx, 1)[0];
+      state.playerSlotMeta.splice(cpuTakeIdx, 1);
+
+      const givenByCpu = state.cpuHand.splice(cpuGiveIdx, 1)[0];
+
+      const pFromEl = el.playerHandGrid.children[cpuTakeIdx] || el.playerHandGrid;
+      const cFromEl = el.cpuHandGrid.children[cpuGiveIdx] || el.cpuHandGrid;
+
+      sfx.playSteal();
+      await Promise.all([
+        animateCardFlight(pFromEl, el.cpuHandGrid, null),
+        animateCardFlight(cFromEl, el.playerHandGrid, givenByCpu)
+      ]);
+
+      state.cpuHand.push(stolenFromPlayer);
+      state.newlyArrivedCpuIndex = 3;
+
+      state.playerHand.push(givenByCpu);
+      state.playerSlotMeta.push({ knownCard: givenByCpu, source: 'traded', age: state.turnNumber });
+      state.newlyArrivedPlayerIndex = 3;
+
+      setLog(`⚡ CPUはあなたの「${posName}(${cardText(stolenFromPlayer)})」を奪い、代わりに「${cardText(givenByCpu)}」を渡しました（お互い4枚）。`);
+      renderAll();
+      await wait(650);
+      endTurn();
+    }
+
+    function endTurn() {
+      if (state.activeTurn === 'player') {
+        state.activeTurn = 'cpu';
+        if (state.startingPlayer === 'cpu') state.turnNumber++;
+      } else {
+        state.activeTurn = 'player';
+        if (state.startingPlayer === 'player') state.turnNumber++;
+      }
+      beginTurn();
+    }
+
+    /**
+     * 「揃った！」宣言による勝負判定 & 3ゲーム先取チェック
+     */
+    function triggerShowdown(caller) {
+      if (state.turnNumber <= 3) {
+        setLog(`🔒 最初の3ターンは「揃った！」宣言できません（現在${state.turnNumber}ターン目／4ターン目から可能）。`);
+        return;
+      }
+      if (state.playerHand.length !== HAND_SIZE || state.cpuHand.length !== HAND_SIZE) return;
+
+      state.phase = 'GAME_OVER';
+      el.modalBlock.classList.add('hidden');
+      el.dynamicControls.innerHTML = '';
+
+      const pHand4 = state.playerHand.slice(0, HAND_SIZE);
+      const cHand4 = state.cpuHand.slice(0, HAND_SIZE);
+
+      const pEval = evaluate4CardHand(pHand4);
+      const cEval = evaluate4CardHand(cHand4);
+      const outcome = compareHands(pEval, cEval);
+
+      const callerName = caller === 'player' ? 'あなた' : `CPU(${CPU_LEVELS[state.cpuLevel].label})`;
+      el.resBadge.textContent = `「${callerName}」の揃った！宣言`;
+
+      if (outcome === 1) {
+        state.playerWins++;
+        if (pEval.level >= 8) {
+          sfx.playRoyalWin();
+          document.body.classList.add('royal-flash-bg');
+          setTimeout(() => document.body.classList.remove('royal-flash-bg'), 3200);
+          el.resTitle.textContent = pEval.level === 9 ? '👑✨ ロイヤルストレートフラッシュ達成！！ ✨👑' : '🌟 ストレートフラッシュ勝利！！ 🌟';
+          el.resTitle.className = 'text-xl sm:text-2xl font-black text-amber-300 animate-pulse';
+        } else {
+          sfx.playWin();
+          el.resTitle.textContent = '🎉 このゲームの勝者：あなた！';
+          el.resTitle.className = 'text-xl sm:text-2xl font-black text-amber-300';
+        }
+        el.resSub.textContent = `「${pEval.name}」でCPUの「${cEval.name}」に勝利！（★獲得）`;
+      } else if (outcome === -1) {
+        state.cpuWins++;
+        el.resTitle.textContent = '💀 このゲームの勝者：CPU';
+        el.resTitle.className = 'text-xl sm:text-2xl font-black text-rose-400';
+        el.resSub.textContent = `CPUの「${cEval.name}」に敗北しました（あなた: ${pEval.name}）。`;
+      } else {
+        el.resTitle.textContent = '🤝 引き分け（ドロー）';
+        el.resTitle.className = 'text-xl sm:text-2xl font-black text-sky-300';
+        el.resSub.textContent = `同じ強さの「${pEval.name}」でした（星変動なし）。`;
+      }
+
+      el.resPlayerStars.textContent = renderStars(state.playerWins);
+      el.resCpuStars.textContent = renderStars(state.cpuWins);
+      el.resPlayerRank.textContent = pEval.name;
+      el.resCpuRank.textContent = cEval.name;
+
+      el.resPlayerCards.innerHTML = pHand4.map(c => renderMiniCardHTML(c)).join('');
+      el.resCpuCards.innerHTML = cHand4.map(c => renderMiniCardHTML(c)).join('');
+
+      const isMatchOver = state.playerWins >= TARGET_WINS || state.cpuWins >= TARGET_WINS;
+
+      if (isMatchOver) {
+        el.carryoverSection.classList.add('hidden');
+        el.btnNextRound.classList.add('hidden');
+        el.btnNewMatch.classList.remove('hidden');
+
+        if (state.playerWins >= TARGET_WINS) {
+          el.resBadge.textContent = `🏆 CPU[${CPU_LEVELS[state.cpuLevel].label}] 3ゲーム先取達成！`;
+          el.resTitle.textContent = '👑 マッチ完全勝利おめでとう！';
+          el.resSub.textContent = `${state.playerWins}勝 - ${state.cpuWins}敗 でCPUを撃破しました！`;
+        } else {
+          el.resBadge.textContent = '💔 3ゲーム先取 決着';
+          el.resTitle.textContent = 'CPUが3勝に到達しました...';
+          el.resSub.textContent = `${state.playerWins}勝 - ${state.cpuWins}敗 でCPUのマッチ勝利です。`;
+        }
+      } else {
+        el.carryoverSection.classList.remove('hidden');
+        el.btnNextRound.classList.remove('hidden');
+        el.btnNewMatch.classList.add('hidden');
+
+        let bestIdx = 0;
+        for (let i = 1; i < pHand4.length; i++) {
+          if (pHand4[i].value > pHand4[bestIdx].value) bestIdx = i;
+        }
+        state.carryOverIndex = bestIdx;
+        renderCarryOverGrid(pHand4);
+      }
+
+      renderAll();
+      el.modalRoundResult.classList.remove('hidden');
+    }
+
+    function renderCarryOverGrid(cards) {
+      const skin = getEquippedCardSkin();
+      el.carryoverGrid.innerHTML = cards.map((c, i) => {
+        const active = state.carryOverIndex === i;
+        const textCol = getSuitTextColor(c);
+        return `
+          <button type="button" onclick="selectCarryCard(${i})"
+            class="w-14 sm:w-16 aspect-[2.5/3.5] rounded-xl ${skin.frontClass} border-2 ${active ? 'border-amber-400 ring-4 ring-amber-400/50 -translate-y-1' : 'opacity-75 hover:opacity-100'} p-1.5 flex flex-col justify-between transition">
+            <div class="text-left leading-none font-black ${textCol} text-xs">${c.label}${c.symbol}</div>
+            <div class="text-lg sm:text-xl ${textCol} self-center">${c.symbol}</div>
+            <div class="text-[9px] font-black rounded px-1 ${active ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-600'}">
+              ${active ? '持ち越す' : '選択'}
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.selectCarryCard = function(idx) {
+      state.carryOverIndex = idx;
+      sfx.playFlip();
+      renderCarryOverGrid(state.playerHand.slice(0, HAND_SIZE));
+    };
+
+    /**
+     * 公開札（捨て札）全件一覧モーダルの描画と開閉
+     */
+    function openHistoryModal() {
+      const total = state.discardHistory.length;
+      el.modalHistoryCount.textContent = `${total}枚`;
+
+      // スート別カウントサマリー
+      el.historySuitSummary.innerHTML = SUITS.map(s => {
+        const count = state.discardHistory.filter(h => h.card.suit === s.id).length;
+        return `
+          <div class="bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-2">
+            <span class="${s.id === 'H' || s.id === 'D' ? 'text-rose-400' : 'text-slate-200'} font-black">${s.symbol}</span>
+            <span class="text-slate-400 ml-1">${count}枚</span>
+          </div>
+        `;
+      }).join('');
+
+      if (total === 0) {
+        el.historyFullList.innerHTML = `
+          <div class="text-center py-8 text-xs text-slate-400 bg-slate-950/60 rounded-xl border border-slate-800">
+            まだ公開されて山札に戻ったカードはありません。<br>（2ターン目以降の交換ドローでここに記録されます）
+          </div>
+        `;
+      } else {
+        // 新しい順に全件表示
+        el.historyFullList.innerHTML = [...state.discardHistory].reverse().map((item, idx) => {
+          const seqNum = total - idx;
+          const isPlayer = item.by === 'あなた';
+          return `
+            <div class="flex items-center justify-between bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-2">
+              <div class="flex items-center gap-2.5">
+                <span class="text-[11px] font-bold text-slate-500 w-6">#${seqNum}</span>
+                <div class="w-8 h-10 rounded bg-white border border-slate-300 flex flex-col items-center justify-center leading-none shadow-sm">
+                  <span class="font-black text-xs ${item.card.color}">${item.card.label}</span>
+                  <span class="text-xs ${item.card.color}">${item.card.symbol}</span>
+                </div>
+                <div>
+                  <div class="text-xs font-black text-white">${item.card.symbol}${item.card.label}</div>
+                  <div class="text-[10px] text-slate-400">${item.turn}ターン目に公開戻し</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isPlayer ? 'bg-sky-500/20 text-sky-300 border border-sky-400/30' : 'bg-rose-500/20 text-rose-300 border border-rose-400/30'}">
+                ${item.by}
+              </span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      el.modalHistory.classList.remove('hidden');
+    }
+
+    function renderMiniCardHTML(c) {
+      if (c && c.isSpecial) {
+        const def = SPECIAL_CARD_TYPES[c.specialType] || SPECIAL_CARD_TYPES.JOKER;
+        return `
+          <div class="w-11 sm:w-12 aspect-[2.5/3.5] rounded-lg ${def.accentClass} border-2 p-1 flex flex-col justify-between shadow">
+            <div class="text-left leading-none font-black ${def.textClass} text-[9px]">${def.label}</div>
+            <div class="text-sm sm:text-base self-center">${def.symbol}</div>
+            <div class="text-right leading-none font-black ${def.textClass} text-[8px] truncate">${def.badge}</div>
+          </div>
+        `;
+      }
+      const skin = getEquippedCardSkin();
+      const textCol = getSuitTextColor(c);
+      return `
+        <div class="w-11 sm:w-12 aspect-[2.5/3.5] rounded-lg ${skin.frontClass} border p-1 flex flex-col justify-between shadow">
+          <div class="text-left leading-none font-black ${textCol} text-[10px]">${c.label}${c.symbol}</div>
+          <div class="text-sm sm:text-base ${textCol} self-center">${c.symbol}</div>
+          <div class="text-right leading-none font-black ${textCol} text-[10px] rotate-180">${c.label}${c.symbol}</div>
+        </div>
+      `;
+    }
+
+    function renderCardHTML(card, faceDown = false, isNew = false) {
+      const animClass = isNew ? 'animate-draw-arrive' : '';
+      const skin = getEquippedCardSkin();
+      if (faceDown) {
+        return `
+          <div class="card-slot ${skin.backClass} card-surface rounded-xl flex items-center justify-center relative ${animClass}">
+            <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-amber-400/40 bg-slate-900/80 flex items-center justify-center text-amber-400 font-black text-xs sm:text-sm">
+              ?
+            </div>
+          </div>
+        `;
+      }
+      if (card && card.isSpecial) {
+        const def = SPECIAL_CARD_TYPES[card.specialType] || SPECIAL_CARD_TYPES.JOKER;
+        return `
+          <div title="${def.name}：${def.desc}" class="card-slot card-surface ${def.accentClass} rounded-xl border-2 p-1 sm:p-1.5 flex flex-col justify-between relative ${animClass}">
+            <div class="flex items-center justify-between leading-none font-black ${def.textClass}">
+              <span class="text-[10px] sm:text-xs tracking-tighter">${def.label}</span>
+              <span class="text-[10px]">★</span>
+            </div>
+            <div class="text-2xl sm:text-3xl self-center drop-shadow">
+              ${def.symbol}
+            </div>
+            <div class="text-center leading-none">
+              <span class="inline-block px-1 py-0.5 rounded bg-slate-900/85 text-amber-300 font-black text-[8px] sm:text-[9px] tracking-tighter">
+                ${def.badge}
+              </span>
+            </div>
+          </div>
+        `;
+      }
+      const textCol = getSuitTextColor(card);
+      return `
+        <div class="card-slot card-surface ${skin.frontClass} rounded-xl border-2 p-1 sm:p-1.5 flex flex-col justify-between relative ${animClass}">
+          <div class="text-left leading-none font-black ${textCol}">
+            <div class="text-xs sm:text-base">${card.label}</div>
+            <div class="text-[11px] sm:text-xs">${card.symbol}</div>
+          </div>
+          <div class="text-xl sm:text-2xl ${textCol} self-center drop-shadow-sm">
+            ${card.symbol}
+          </div>
+          <div class="text-right leading-none font-black ${textCol} rotate-180">
+            <div class="text-xs sm:text-base">${card.label}</div>
+            <div class="text-[11px] sm:text-xs">${card.symbol}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * 画面全体の描画更新
+     */
+    function renderAll(shuffleAnim = false) {
+      const lvInfo = CPU_LEVELS[state.cpuLevel];
+      el.headerCpuLevelBadge.textContent = `CPU: ${lvInfo.label}`;
+      el.headerCpuLevelBadge.className = `px-1.5 py-0.2 rounded border text-[10px] font-bold ${lvInfo.badgeClass}`;
+      el.cpuNamePill.textContent = state.gameMode === 'boss' ? `👑 覇王CPU · 4枚` : state.gameMode === 'tournament' ? `🏅 大会CPU (${lvInfo.label}) · 4枚` : state.gameMode === 'special' ? `✨ 特殊ルールCPU · 4枚` : `CPU (${lvInfo.label}) · 4枚`;
+
+      el.playerStars.textContent = renderStars(state.playerWins);
+      el.cpuStars.textContent = renderStars(state.cpuWins);
+      el.gameNum.textContent = state.gameNumber;
+      el.turnNum.textContent = state.turnNumber;
+      el.deckCount.textContent = state.deck.length;
+      el.historyCountBadge.textContent = state.discardHistory.length;
+
+      el.turnOrderLabel.textContent = `G${state.gameNumber} · T${state.turnNumber} · 先攻: ${state.startingPlayer === 'player' ? 'あなた' : 'CPU'}`;
+      el.cpuShuffles.textContent = state.cpuShuffles;
+      el.cpuShieldBadge.textContent = state.cpuBlocks > 0 ? '🛡️ 阻止あり' : '🛡️ 阻止済';
+      el.cpuShieldBadge.className = state.cpuBlocks > 0
+        ? 'bg-slate-900/90 border border-sky-500/40 rounded-md px-2 py-0.5 text-sky-300 font-bold'
+        : 'bg-slate-900/50 border border-slate-700 rounded-md px-2 py-0.5 text-slate-500 line-through';
+
+      el.playerShuffles.textContent = `${state.playerShuffles}/2`;
+      el.playerShieldBadge.textContent = state.playerBlocks > 0 ? '🛡️ 阻止1/1' : '🛡️ 阻止0/1';
+      el.playerShieldBadge.className = state.playerBlocks > 0
+        ? 'bg-slate-900 border border-sky-500/40 rounded-lg px-2 py-1 text-[11px] text-sky-300 font-bold'
+        : 'bg-slate-900/50 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-500 line-through';
+
+      // 現在の役表示
+      const pEval = evaluate4CardHand(state.playerHand);
+      el.playerRankBadge.textContent = `役: ${pEval.name}`;
+
+      // スキル＆勝負ボタン活性制御
+      const isPlayerActive = ['PLAYER_DISCARD', 'PLAYER_POST_DRAW_STEAL'].includes(state.phase);
+      el.btnShuffleHand.disabled = !isPlayerActive || state.playerShuffles <= 0 || state.gameMode === 'special';
+      const showdownLocked = state.turnNumber <= 3;
+      el.btnShowdown.disabled = !isPlayerActive || state.playerHand.length !== HAND_SIZE || showdownLocked;
+      el.btnShowdown.textContent = showdownLocked ? `🔒 ${4 - state.turnNumber}ターン後に勝負可能` : '🔥 揃った！(勝負)';
+      const headerCoins = document.getElementById('header-coins');
+      if (headerCoins && typeof profile !== 'undefined') headerCoins.textContent = profile.coins;
+
+      // 最新の公開捨て札スロット
+      if (state.lastPublicDiscard) {
+        const d = state.lastPublicDiscard;
+        const skin = getEquippedCardSkin();
+        const textCol = getSuitTextColor(d.card);
+        el.publicDiscardVisual.className = `card-slot rounded-xl ${skin.frontClass} border-2 border-amber-400 p-1.5 flex flex-col justify-between shadow-md hover:scale-105 transition`;
+        el.publicDiscardVisual.innerHTML = `
+          <div class="text-left leading-none font-black ${textCol} text-xs sm:text-sm">${d.card.label}${d.card.symbol}</div>
+          <div class="text-xl sm:text-2xl ${textCol} self-center">${d.card.symbol}</div>
+          <div class="text-[9px] font-bold bg-slate-900 text-amber-300 rounded px-1 text-center truncate">${d.by} (${state.discardHistory.length})</div>
+        `;
+      } else {
+        el.publicDiscardVisual.className = 'card-slot rounded-xl border-2 border-dashed border-slate-600 bg-slate-900/70 flex flex-col items-center justify-center text-center p-1 hover:border-amber-400 transition';
+        el.publicDiscardVisual.innerHTML = `<span class="text-[9px] sm:text-[10px] text-slate-400 leading-tight">2T目から<br>公開戻し</span>`;
+      }
+
+      // CPU手札描画（常時4枚）
+      const showCpuCards = state.phase === 'GAME_OVER' || state.gameMode === 'special' || state.revealCpuAll;
+      const canSelectCpuTarget = state.phase === 'PLAYER_POST_DRAW_STEAL';
+
+      el.cpuHandGrid.innerHTML = state.cpuHand.map((c, idx) => {
+        const isTarget = canSelectCpuTarget && state.tradeCpuTargetIdx === idx;
+        const inner = renderCardHTML(c, !showCpuCards, idx === state.newlyArrivedCpuIndex);
+        if (canSelectCpuTarget) {
+          return `
+            <button type="button" onclick="onCpuCardClick(${idx})"
+              class="relative rounded-xl interactive-card ${isTarget ? 'selected-card' : 'target-pulse'} focus:outline-none ${shuffleAnim ? 'animate-shuffle' : ''}">
+              ${inner}
+              <span class="absolute inset-x-1 bottom-1 py-0.5 rounded ${isTarget ? 'bg-amber-400 text-slate-950' : 'bg-slate-900/90 text-amber-300 border border-amber-400/50'} font-black text-[9px] sm:text-[10px] shadow">
+                ${isTarget ? '✔ 奪う選択中' : '⚡ 奪う'}
+              </span>
+            </button>
+          `;
+        }
+        return `<div class="${shuffleAnim ? 'animate-shuffle' : ''}">${inner}</div>`;
+      }).join('');
+
+      el.cpuSlotLabels.innerHTML = [0, 1, 2, 3].map(idx => `
+        <span class="w-12 sm:w-16 text-center truncate">${posLabel(idx)}</span>
+      `).join('');
+
+      // プレイヤー手札描画（常時4枚）
+      const isDiscardPhase = state.phase === 'PLAYER_DISCARD';
+      const isTradePhase = state.phase === 'PLAYER_POST_DRAW_STEAL';
+
+      el.playerHandGrid.innerHTML = state.playerHand.map((c, idx) => {
+        const isDiscardSel = isDiscardPhase && state.selectedIndex === idx;
+        const isGiveSel = isTradePhase && state.tradeGiveIdx === idx;
+        const inner = renderCardHTML(c, false, idx === state.newlyArrivedPlayerIndex);
+
+        if (isDiscardPhase || isTradePhase) {
+          const extraBorder = isDiscardSel ? 'selected-card' : isGiveSel ? 'selected-trade-give' : '';
+          let badgeHTML = '';
+          if (isDiscardSel) {
+            badgeHTML = '<span class="absolute -top-2 inset-x-1 py-0.5 rounded-full bg-rose-600 text-white font-black text-[9px] shadow">山札へ戻す</span>';
+          } else if (isGiveSel) {
+            badgeHTML = '<span class="absolute -top-2 inset-x-1 py-0.5 rounded-full bg-sky-500 text-slate-950 font-black text-[9px] shadow">相手に渡す</span>';
+          }
+
+          return `
+            <button type="button" onclick="onPlayerCardClick(${idx})"
+              class="relative rounded-xl interactive-card focus:outline-none ${extraBorder} ${shuffleAnim ? 'animate-shuffle' : ''}">
+              ${inner}
+              ${badgeHTML}
+            </button>
+          `;
+        }
+        return `<div class="${shuffleAnim ? 'animate-shuffle' : ''}">${inner}</div>`;
+      }).join('');
+
+      el.playerSlotLabels.innerHTML = [0, 1, 2, 3].map(idx => `
+        <span class="w-12 sm:w-16 text-center truncate">${posLabel(idx)}</span>
+      `).join('');
+    }
+
+    // =========================================================================
+    // 追加システム：永続プロフィール・実績・ショップ・モード・リプレイ
+    // =========================================================================
+    const PROFILE_KEY = 'tacticalFourCardPokerProfile_v1';
+    const DEFAULT_PROFILE = {
+      coins: 0, wins: 0, losses: 0, draws: 0, matches: 0, streak: 0,
+      bestStreak: 0, bossWins: 0, tournamentWins: 0, gamesPlayed: 0,
+      achievements: [], owned: ['felt-green', 'card-classic'], equipped: 'felt-green', equippedCard: 'card-classic',
+      replays: [],
+      statsByCpu: { easy: { w: 0, l: 0, d: 0 }, normal: { w: 0, l: 0, d: 0 }, hard: { w: 0, l: 0, d: 0 }, master: { w: 0, l: 0, d: 0 } }
+    };
+    function loadProfile() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
+        if (!saved) return structuredClone(DEFAULT_PROFILE);
+        const merged = { ...structuredClone(DEFAULT_PROFILE), ...saved, statsByCpu: { ...structuredClone(DEFAULT_PROFILE.statsByCpu), ...(saved.statsByCpu || {}) } };
+        if (!merged.owned.includes('card-classic')) merged.owned.push('card-classic');
+        if (!merged.equippedCard) merged.equippedCard = 'card-classic';
+        return merged;
+      } catch (e) { return structuredClone(DEFAULT_PROFILE); }
+    }
+    let profile = loadProfile();
+    function saveProfile() {
+      try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+      catch (e) { console.warn('プロフィール保存に失敗しました', e); }
+    }
+    const ACHIEVEMENTS = [
+      { id: 'first-win', name: '初勝利', desc: '初めてマッチに勝利する', test: p => p.wins >= 1 },
+      { id: 'five-wins', name: '勝負師', desc: '通算5勝を達成する', test: p => p.wins >= 5 },
+      { id: 'ten-wins', name: '常連プレイヤー', desc: '通算10勝を達成する', test: p => p.wins >= 10 },
+      { id: 'streak-three', name: '連勝街道', desc: '3連勝を達成する', test: p => p.bestStreak >= 3 },
+      { id: 'boss-breaker', name: 'ボスブレイカー', desc: 'ボスCPUに勝利する', test: p => p.bossWins >= 1 },
+      { id: 'champion', name: '大会チャンピオン', desc: 'トーナメントを制覇する', test: p => p.tournamentWins >= 1 }
+    ];
+
+    const CARD_SKINS = [
+      {
+        id: 'card-classic',
+        name: 'クラシックホワイト',
+        desc: '標準の白トランプ＆紺ゴールド裏面',
+        price: 0,
+        frontClass: 'card-front-classic',
+        backClass: 'card-back-classic',
+        blackSuitColor: 'text-slate-900',
+        redSuitColor: 'text-rose-600',
+        previewBg: 'linear-gradient(135deg, #ffffff 48%, #1e293b 52%)'
+      },
+      {
+        id: 'card-gold',
+        name: 'ロイヤルゴールド',
+        desc: '黄金に輝く豪華カジノ仕様カード',
+        price: 60,
+        frontClass: 'card-front-gold',
+        backClass: 'card-back-gold',
+        blackSuitColor: 'text-stone-900',
+        redSuitColor: 'text-red-700',
+        previewBg: 'linear-gradient(135deg, #fde047 48%, #78350f 52%)'
+      },
+      {
+        id: 'card-dark',
+        name: 'ミッドナイトダーク',
+        desc: '漆黒の盤面にネオンが映えるナイトカード',
+        price: 90,
+        frontClass: 'card-front-dark',
+        backClass: 'card-back-dark',
+        blackSuitColor: 'text-sky-200',
+        redSuitColor: 'text-rose-400',
+        previewBg: 'linear-gradient(135deg, #0f172a 48%, #0284c7 52%)'
+      },
+      {
+        id: 'card-sakura',
+        name: 'サクラブロッサム',
+        desc: '華やかな桜色の和モダンデザイン',
+        price: 110,
+        frontClass: 'card-front-sakura',
+        backClass: 'card-back-sakura',
+        blackSuitColor: 'text-rose-950',
+        redSuitColor: 'text-pink-600',
+        previewBg: 'linear-gradient(135deg, #ffe4e6 48%, #be185d 52%)'
+      },
+      {
+        id: 'card-cyber',
+        name: 'サイバーネオン',
+        desc: '電脳空間をイメージした紫電デザイン',
+        price: 150,
+        frontClass: 'card-front-cyber',
+        backClass: 'card-back-cyber',
+        blackSuitColor: 'text-cyan-300',
+        redSuitColor: 'text-fuchsia-400',
+        previewBg: 'linear-gradient(135deg, #1e1b4b 48%, #c084fc 52%)'
+      }
+    ];
+
+    function getEquippedCardSkin() {
+      const id = (typeof profile !== 'undefined' && profile.equippedCard) ? profile.equippedCard : 'card-classic';
+      return CARD_SKINS.find(s => s.id === id) || CARD_SKINS[0];
+    }
+
+    function getSuitTextColor(card) {
+      const skin = getEquippedCardSkin();
+      return (card.suit === 'H' || card.suit === 'D') ? skin.redSuitColor : skin.blackSuitColor;
+    }
+
+    const SHOP_ITEMS = [
+      { id: 'felt-green', name: 'クラシックフェルト', desc: '初期デザイン', price: 0, bg: 'radial-gradient(circle at 50% 45%, #065f46 0%, #022c22 72%, #01140f 100%)' },
+      { id: 'felt-blue', name: 'ミッドナイトブルー', desc: '青いテーブル', price: 80, bg: 'radial-gradient(circle at 50% 45%, #1e40af 0%, #172554 72%, #020617 100%)' },
+      { id: 'felt-purple', name: 'ロイヤルパープル', desc: '紫のテーブル', price: 120, bg: 'radial-gradient(circle at 50% 45%, #7e22ce 0%, #3b0764 72%, #090014 100%)' },
+      { id: 'felt-red', name: 'クリムゾン', desc: '赤いテーブル', price: 160, bg: 'radial-gradient(circle at 50% 45%, #991b1b 0%, #450a0a 72%, #160303 100%)' }
+    ];
+    function applyShopTheme() {
+      const item = SHOP_ITEMS.find(x => x.id === profile.equipped) || SHOP_ITEMS[0];
+      document.body.style.background = item.bg;
+      const skin = getEquippedCardSkin();
+      if (el && el.deckVisual) {
+        el.deckVisual.className = `relative card-slot ${skin.backClass} rounded-xl flex flex-col items-center justify-center shadow-lg`;
+      }
+      if (typeof renderAll === 'function' && state && state.playerHand && state.playerHand.length) {
+        renderAll();
+      }
+    }
+    function checkAchievements() {
+      const newly = ACHIEVEMENTS.filter(a => a.test(profile) && !profile.achievements.includes(a.id));
+      newly.forEach(a => { profile.achievements.push(a.id); profile.coins += 30; });
+      if (newly.length) setLog(`🏅 実績解除！「${newly.map(a => a.name).join('」「')}」(+${newly.length * 30}コイン)`);
+      saveProfile();
+    }
+    function featureTab(tab) {
+      document.querySelectorAll('.feature-tab').forEach(b => {
+        b.className = `feature-tab rounded-lg py-2 text-[11px] font-bold ${b.dataset.featureTab === tab ? 'bg-violet-500/25 border border-violet-300/50' : 'bg-slate-800'}`;
+      });
+      const area = document.getElementById('feature-content');
+      if (tab === 'stats') {
+        const total = profile.wins + profile.losses + profile.draws;
+        const rate = total ? Math.round(profile.wins / total * 100) : 0;
+        area.innerHTML = `<div class="grid grid-cols-2 gap-2 text-xs">${[
+          ['対戦マッチ', profile.matches], ['プレイしたゲーム', profile.gamesPlayed], ['敗北', profile.losses], ['引き分け', profile.draws], ['現在の連勝', profile.streak], ['最高連勝', profile.bestStreak], ['ボス撃破', profile.bossWins], ['大会優勝', profile.tournamentWins]
+        ].map(([k,v]) => `<div class="rounded-lg bg-slate-950 p-3"><span class="text-slate-400">${k}</span><div class="text-lg font-black text-white">${v}</div></div>`).join('')}</div><h3 class="font-bold text-sm text-amber-200 mt-3">CPU別マッチ勝利</h3><div class="grid grid-cols-2 gap-2 text-xs">${Object.entries(profile.statsByCpu).map(([k,v]) => `<div class="rounded-lg bg-slate-950 p-2">${CPU_LEVELS[k]?.label || k}：${v.w}勝 / ${v.l}敗 / ${v.d}分</div>`).join('')}</div>`;
+      } else if (tab === 'achievements') {
+        area.innerHTML = ACHIEVEMENTS.map(a => { const ok = profile.achievements.includes(a.id); return `<div class="flex items-center gap-3 rounded-xl border ${ok ? 'border-amber-400/50 bg-amber-950/20' : 'border-slate-700 bg-slate-950/70'} p-3"><div class="text-2xl">${ok ? '🏅' : '🔒'}</div><div class="min-w-0"><div class="text-sm font-black ${ok ? 'text-amber-200' : 'text-slate-300'}">${a.name}</div><div class="text-[11px] text-slate-400">${a.desc}</div></div><span class="ml-auto text-[10px] ${ok ? 'text-emerald-300' : 'text-slate-500'}">${ok ? '達成済み' : '未達成'}</span></div>`; }).join('');
+      } else if (tab === 'shop') {
+        const cardsHTML = CARD_SKINS.map(skin => {
+          const owned = profile.owned.includes(skin.id);
+          const equipped = profile.equippedCard === skin.id;
+          return `
+            <div class="flex items-center gap-3 rounded-xl border ${equipped ? 'border-amber-400/70 bg-amber-950/20' : 'border-slate-700 bg-slate-950'} p-3">
+              <div class="h-12 w-9 rounded-md border border-white/30 flex items-center justify-center text-xs font-black text-white shadow" style="background:${skin.previewBg}">♠</div>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-black text-white">${skin.name}</div>
+                <div class="text-[10px] text-slate-400">${skin.desc}</div>
+                <div class="text-[11px] text-amber-300 font-bold">${skin.price ? skin.price + ' コイン' : '初期装備'}</div>
+              </div>
+              <button data-card-skin="${skin.id}" class="rounded-lg px-3 py-2 text-[11px] font-black ${equipped ? 'bg-emerald-700 text-white' : owned ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}">
+                ${equipped ? '使用中' : owned ? '装備する' : '購入'}
+              </button>
+            </div>
+          `;
+        }).join('');
+
+        const feltsHTML = SHOP_ITEMS.map(item => {
+          const owned = profile.owned.includes(item.id);
+          const equipped = profile.equipped === item.id;
+          return `
+            <div class="flex items-center gap-3 rounded-xl border ${equipped ? 'border-emerald-400/70 bg-emerald-950/20' : 'border-slate-700 bg-slate-950'} p-3">
+              <div class="h-12 w-12 rounded-lg border border-white/20 shadow" style="background:${item.bg}"></div>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-black text-white">${item.name}</div>
+                <div class="text-[10px] text-slate-400">${item.desc}</div>
+                <div class="text-[11px] text-amber-300 font-bold">${item.price ? item.price + ' コイン' : '初期装備'}</div>
+              </div>
+              <button data-shop-item="${item.id}" class="rounded-lg px-3 py-2 text-[11px] font-black ${equipped ? 'bg-emerald-700 text-white' : owned ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-amber-500 hover:bg-amber-400 text-slate-950'}">
+                ${equipped ? '使用中' : owned ? '装備する' : '購入'}
+              </button>
+            </div>
+          `;
+        }).join('');
+
+        area.innerHTML = `
+          <div class="mb-2 flex items-center justify-between">
+            <h3 class="text-xs font-black text-amber-300">🃏 カードの見た目（表面＆裏面デザイン）</h3>
+            <span class="text-[10px] text-slate-400">勝敗や実績でコイン獲得！</span>
+          </div>
+          <div class="space-y-2 mb-4">${cardsHTML}</div>
+          <div class="mb-2">
+            <h3 class="text-xs font-black text-emerald-300">🟩 テーブルフェルト（背景デザイン）</h3>
+          </div>
+          <div class="space-y-2">${feltsHTML}</div>
+        `;
+
+        area.querySelectorAll('[data-card-skin]').forEach(btn => btn.addEventListener('click', () => {
+          const skin = CARD_SKINS.find(x => x.id === btn.dataset.cardSkin);
+          if (!skin) return;
+          if (!profile.owned.includes(skin.id)) {
+            if (profile.coins < skin.price) { alert('コインが足りません！対戦に勝利してコインを集めましょう。'); return; }
+            profile.coins -= skin.price;
+            profile.owned.push(skin.id);
+            sfx.playWin();
+          } else {
+            sfx.playFlip();
+          }
+          profile.equippedCard = skin.id;
+          applyShopTheme();
+          saveProfile();
+          renderFeatureModal('shop');
+        }));
+
+        area.querySelectorAll('[data-shop-item]').forEach(btn => btn.addEventListener('click', () => {
+          const item = SHOP_ITEMS.find(x => x.id === btn.dataset.shopItem);
+          if (!item) return;
+          if (!profile.owned.includes(item.id)) {
+            if (profile.coins < item.price) { alert('コインが足りません！'); return; }
+            profile.coins -= item.price;
+            profile.owned.push(item.id);
+            sfx.playWin();
+          } else {
+            sfx.playFlip();
+          }
+          profile.equipped = item.id;
+          applyShopTheme();
+          saveProfile();
+          renderFeatureModal('shop');
+        }));
+      } else if (tab === 'replays') {
+        area.innerHTML = profile.replays.length ? profile.replays.map((r,i) => `<div class="rounded-xl border border-slate-700 bg-slate-950 p-3"><div class="flex justify-between gap-2"><b class="text-xs">${r.date} · ${r.modeLabel}</b><span class="text-[11px] ${r.result === '勝利' ? 'text-emerald-300' : r.result === '敗北' ? 'text-rose-300' : 'text-sky-300'}">${r.result}</span></div><p class="mt-1 text-[11px] text-slate-400">CPU：${r.cpuLabel} ／ 結果 ${r.playerWins}-${r.cpuWins}</p><div class="mt-2 text-[10px] text-slate-300">${(r.rounds || []).map((g,j) => `G${j+1}: あなた ${g.playerRank} [${(g.playerCards||[]).join(' ')}] / CPU ${g.cpuRank} [${(g.cpuCards||[]).join(' ')}] (${g.result})`).join('<br>')}</div></div>`).join('') : '<p class="rounded-xl bg-slate-950 p-6 text-center text-xs text-slate-400">まだ対戦履歴がありません。対戦を終えるとここに保存されます。</p>';
+      }
+    }
+    function renderFeatureModal(tab='stats') {
+      const total = profile.wins + profile.losses + profile.draws;
+      document.getElementById('profile-coins').textContent = profile.coins;
+      const headerCoins = document.getElementById('header-coins');
+      if (headerCoins) headerCoins.textContent = profile.coins;
+      document.getElementById('profile-wins').textContent = profile.wins;
+      document.getElementById('profile-rate').textContent = `${total ? Math.round(profile.wins / total * 100) : 0}%`;
+      featureTab(tab);
+    }
+    document.getElementById('btn-open-features').addEventListener('click', () => { renderFeatureModal('stats'); document.getElementById('modal-features').classList.remove('hidden'); });
+    document.getElementById('btn-close-features').addEventListener('click', () => document.getElementById('modal-features').classList.add('hidden'));
+    document.querySelectorAll('.feature-tab').forEach(b => b.addEventListener('click', () => featureTab(b.dataset.featureTab)));
+    // 封印カプセル・デュエル：既存ポーカーの状態・進行には干渉しない独立モード
+    const capsuleGame = { player: 3, cpu: 3, playerGuard: 0, cpuGuard: 0, bag: [], turn: 'player', busy: false, ended: false };
+    const capsuleEl = id => document.getElementById(id);
+    function capsuleRefill() {
+      capsuleGame.bag = ['calm','calm','calm','calm','surge','surge'].sort(() => Math.random() - 0.5);
+      capsuleRender();
+    }
+    function capsuleRender() {
+      capsuleEl('capsule-player-energy').textContent = '♥'.repeat(capsuleGame.player) + '♡'.repeat(3-capsuleGame.player);
+      capsuleEl('capsule-cpu-energy').textContent = '♥'.repeat(capsuleGame.cpu) + '♡'.repeat(3-capsuleGame.cpu);
+      capsuleEl('capsule-player-guard').textContent = `ガード ${capsuleGame.playerGuard}`;
+      capsuleEl('capsule-cpu-guard').textContent = `ガード ${capsuleGame.cpuGuard}`;
+      capsuleEl('capsule-stock-label').textContent = `残り${capsuleGame.bag.length}個`;
+      capsuleEl('capsule-turn-label').textContent = capsuleGame.ended ? 'ゲーム終了' : capsuleGame.turn === 'player' ? 'あなたのターン' : 'CPUのターン';
+      capsuleEl('capsule-tray').innerHTML = Array.from({length:6}, (_,i) => {
+        const used = i >= capsuleGame.bag.length;
+        return `<div class="rounded-lg h-12 sm:h-14 flex items-center justify-center border ${used ? 'border-slate-800 bg-slate-950 text-slate-700' : 'border-fuchsia-300/40 bg-gradient-to-b from-slate-700 to-slate-950 text-fuchsia-200'} text-xl">${used ? '·' : '▰'}</div>`;
+      }).join('');
+      const active = !capsuleGame.ended && !capsuleGame.busy && capsuleGame.turn === 'player';
+      capsuleEl('capsule-target-player').disabled = !active;
+      capsuleEl('capsule-target-cpu').disabled = !active;
+      [capsuleEl('capsule-target-player'),capsuleEl('capsule-target-cpu')].forEach(b => b.classList.toggle('opacity-40',!active));
+      capsuleEl('capsule-actions').classList.toggle('hidden',capsuleGame.ended);
+      capsuleEl('capsule-result-actions').classList.toggle('hidden',!capsuleGame.ended);
+      capsuleEl('capsule-result-actions').classList.toggle('grid',capsuleGame.ended);
+    }
+    function capsuleStart() {
+      Object.assign(capsuleGame,{player:3,cpu:3,playerGuard:0,cpuGuard:0,turn:'player',busy:false,ended:false});
+      capsuleEl('capsule-log').textContent = '誰にカプセルを引かせるか選ぼう。';
+      capsuleRefill(); capsuleRender();
+      capsuleEl('modal-start-level').classList.add('hidden');
+      capsuleEl('modal-capsule-duel').classList.remove('hidden');
+    }
+    function capsuleDraw(target, byCpu=false) {
+      if (capsuleGame.ended || capsuleGame.busy || (!byCpu && capsuleGame.turn !== 'player')) return;
+      capsuleGame.busy = true; capsuleRender();
+      if (!capsuleGame.bag.length) capsuleRefill();
+      const result = capsuleGame.bag.pop();
+      const who = target === 'player' ? 'あなた' : 'CPU';
+      if (result === 'calm') {
+        if (target === 'player') capsuleGame.playerGuard = Math.min(2,capsuleGame.playerGuard+1);
+        else capsuleGame.cpuGuard = Math.min(2,capsuleGame.cpuGuard+1);
+        capsuleEl('capsule-log').textContent = `◉ 安定カプセル！ ${who}はガードを1獲得。`;
+      } else {
+        const guardKey = target === 'player' ? 'playerGuard' : 'cpuGuard';
+        const energyKey = target === 'player' ? 'player' : 'cpu';
+        if (capsuleGame[guardKey] > 0) { capsuleGame[guardKey]--; capsuleEl('capsule-log').textContent = `◆ 波乱カプセル！ ${who}のガードが1減った。`; }
+        else { capsuleGame[energyKey] = Math.max(0,capsuleGame[energyKey]-1); capsuleEl('capsule-log').textContent = `◆ 波乱カプセル！ ${who}のエネルギーが1減った。`; }
+      }
+      capsuleRender();
+      if (capsuleGame.player === 0 || capsuleGame.cpu === 0) {
+        capsuleGame.ended = true;
+        capsuleEl('capsule-log').textContent = capsuleGame.player === capsuleGame.cpu ? '引き分け！' : capsuleGame.player === 0 ? 'CPUの勝利！ 次は作戦を変えてみよう。' : 'あなたの勝利！見事な読み合い！';
+        capsuleGame.busy = false; capsuleRender(); return;
+      }
+      if (!capsuleGame.bag.length) capsuleEl('capsule-log').textContent += '（カプセルを補充）';
+      capsuleGame.turn = byCpu ? 'player' : 'cpu';
+      capsuleGame.busy = false; capsuleRender();
+      if (capsuleGame.turn === 'cpu') {
+        capsuleGame.busy = true; capsuleRender();
+        setTimeout(() => {
+          const targetCpu = capsuleGame.player >= capsuleGame.cpu ? 'player' : 'cpu';
+          capsuleGame.busy = false;
+          capsuleDraw(targetCpu,true);
+        },850);
+      }
+    }
+    capsuleEl('capsule-target-player').addEventListener('click',()=>capsuleDraw('player'));
+    capsuleEl('capsule-target-cpu').addEventListener('click',()=>capsuleDraw('cpu'));
+    capsuleEl('capsule-restart').addEventListener('click',capsuleStart);
+    function capsuleReturnToModes() {
+      capsuleEl('modal-capsule-duel').classList.add('hidden');
+      capsuleEl('modal-start-level').classList.remove('hidden');
+      state.gameMode = 'classic';
+      document.querySelectorAll('.mode-btn').forEach(b => b.className = `mode-btn rounded-lg border px-2 py-2 text-xs font-bold ${b.dataset.mode === 'classic' ? 'border-amber-400 bg-amber-500/20 text-amber-200' : 'border-slate-700 bg-slate-950 text-slate-200'}`);
+      document.getElementById('mode-description').textContent = '通常の4段階CPUと対戦します。';
+    }
+    capsuleEl('capsule-back').addEventListener('click',capsuleReturnToModes);
+    capsuleEl('capsule-exit').addEventListener('click',capsuleReturnToModes);
+
+    document.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+      state.gameMode = b.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(x => x.className = `mode-btn rounded-lg border px-2 py-2 text-xs font-bold ${x === b ? 'border-amber-400 bg-amber-500/20 text-amber-200' : 'border-slate-700 bg-slate-950 text-slate-200'}`);
+      const descriptions = { classic: '通常の4段階CPUと対戦します。', boss: 'ボスCPU「覇王」と対決！たつじんCPUが相手です。勝利報酬もアップ！', special: '特殊ルール：CPUの手札が常に公開され、位置シャッフルが禁止される公開情報バトルです。', tournament: '3ステージ制。やさしい→ふつう→たつじんCPUを連破して優勝を目指します。' };
+      descriptions.roulette = '封印カプセルを使った独立型の心理戦。ポーカーのルールや記録には影響しません。';
+      document.getElementById('mode-description').textContent = descriptions[state.gameMode] || descriptions.roulette;
+      if (state.gameMode === 'roulette') capsuleStart();
+    }));
+    function modeLabel() { return ({ classic:'通常対戦', boss:'ボスCPU', special:'特殊ルール', tournament:'トーナメント', roulette:'封印カプセル' })[state.gameMode] || '通常対戦'; }
+    const originalTriggerShowdown = triggerShowdown;
+    let replayRounds = [];
+    triggerShowdown = function(caller) {
+      if (state.phase === 'GAME_OVER') return;
+      if (state.turnNumber <= 3) {
+        setLog(`🔒 最初の3ターンは「揃った！」宣言禁止！（現在${state.turnNumber}ターン目／4ターン目から可能）`);
+        return;
+      }
+      const p = state.playerHand.slice(0, HAND_SIZE), c = state.cpuHand.slice(0, HAND_SIZE);
+      const pe = evaluate4CardHand(p), ce = evaluate4CardHand(c), outcome = compareHands(pe, ce);
+      const round = { player: p, cpu: c, playerRank: pe.name, cpuRank: ce.name, result: outcome > 0 ? '勝利' : outcome < 0 ? '敗北' : '引分', turn: state.turnNumber, caller };
+      replayRounds.push(round);
+      originalTriggerShowdown(caller);
+      const resultCard = el.modalRoundResult.firstElementChild;
+      if (resultCard) { resultCard.classList.remove('showdown-glow'); void resultCard.offsetWidth; resultCard.classList.add('showdown-glow'); }
+      const isMatchOver = state.playerWins >= TARGET_WINS || state.cpuWins >= TARGET_WINS;
+      if (isMatchOver && !state.matchRecorded) {
+        state.matchRecorded = true;
+        const won = state.playerWins >= TARGET_WINS;
+        profile.matches++;
+        profile.gamesPlayed += replayRounds.length;
+        if (won) { profile.wins++; profile.streak++; profile.bestStreak = Math.max(profile.bestStreak, profile.streak); }
+        else if (state.cpuWins >= TARGET_WINS) { profile.losses++; profile.streak = 0; }
+        else profile.draws++;
+        if (state.gameMode === 'boss' && won) profile.bossWins++;
+        if (state.gameMode === 'tournament' && won && state.tournamentStage >= 3) profile.tournamentWins++;
+        const cpuStat = profile.statsByCpu[state.cpuLevel] || (profile.statsByCpu[state.cpuLevel] = {w:0,l:0,d:0});
+        if (won) cpuStat.w++; else if (state.cpuWins >= TARGET_WINS) cpuStat.l++; else cpuStat.d++;
+        const reward = (won ? 50 : 15) + (state.gameMode === 'boss' && won ? 100 : 0) + (state.gameMode === 'tournament' && won ? 40 : 0);
+        profile.coins += reward;
+        profile.replays.unshift({ date: new Date().toLocaleString('ja-JP'), modeLabel: modeLabel(), cpuLabel: CPU_LEVELS[state.cpuLevel].label, result: won ? '勝利' : '敗北', playerWins: state.playerWins, cpuWins: state.cpuWins, rounds: replayRounds.map(g => ({playerRank:g.playerRank,cpuRank:g.cpuRank,result:g.result,playerCards:g.player.map(cardText),cpuCards:g.cpu.map(cardText),turn:g.turn})) });
+        profile.replays = profile.replays.slice(0, 30);
+        checkAchievements(); saveProfile();
+        const headerCoins = document.getElementById('header-coins');
+        if (headerCoins) headerCoins.textContent = profile.coins;
+        const profileCoins = document.getElementById('profile-coins');
+        if (profileCoins) profileCoins.textContent = profile.coins;
+        el.resSub.textContent += ` ／ ${reward}コイン獲得！`;
+        if (state.gameMode === 'boss') el.resBadge.textContent = `👑 ボス「覇王」${won ? '撃破！' : 'に敗北'}`;
+        if (state.gameMode === 'tournament') el.resBadge.textContent = `🏅 トーナメント ${state.tournamentStage}/3ステージ ${won ? '突破！' : '終了'}`;
+      }
+    };
+    // マッチを始めるたびに、現在のリプレイ記録を初期化
+    const originalStartNewGame = startNewGame;
+    startNewGame = async function(playerCarry=null, cpuCarry=null) {
+      if (state.turnNumber === 1 && state.gameNumber === 1 && state.playerWins === 0 && state.cpuWins === 0 && state.phase === 'LEVEL_SELECT') replayRounds = [];
+      return originalStartNewGame(playerCarry, cpuCarry);
+    };
+    // トーナメントは3連続マッチ。ステージごとにCPU難易度を上げる。
+    el.btnNewMatch.addEventListener('click', (ev) => {
+      if (state.gameMode !== 'tournament' || state.playerWins < TARGET_WINS) return;
+      ev.preventDefault(); ev.stopImmediatePropagation();
+      if (state.tournamentStage >= 3) {
+        state.tournamentStage = 1; state.gameMode = 'classic';
+        alert('🏆 トーナメント優勝！通常対戦に戻ります。');
+        el.modalRoundResult.classList.add('hidden'); el.modalStartLevel.classList.remove('hidden'); return;
+      }
+      state.tournamentStage++;
+      state.cpuLevel = ({1:'easy',2:'normal',3:'master'})[state.tournamentStage];
+      state.gameNumber = 1; state.playerWins = 0; state.cpuWins = 0; state.matchRecorded = false; replayRounds = [];
+      el.modalRoundResult.classList.add('hidden');
+      setLog(`🏅 トーナメント第${state.tournamentStage}ステージ開始！`);
+      startNewGame(null, null);
+    }, true);
+    // 難易度選択時のモード別CPU設定
+    document.querySelectorAll('.level-btn').forEach(btn => btn.addEventListener('click', () => {
+      state.matchRecorded = false; replayRounds = []; state.tournamentStage = 1;
+      if (state.gameMode === 'boss') state.cpuLevel = 'master';
+      if (state.gameMode === 'tournament') state.cpuLevel = 'easy';
+      if (state.gameMode === 'special') state.playerShuffles = 0;
+    }, true));
+    applyShopTheme();
+
+    // =========================================================================
+    // イベントリスナー登録
+    // =========================================================================
+
+    // CPUレベル選択ボタン（スタート画面＆難易度変更画面共通）
+    document.querySelectorAll('.level-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chosen = btn.getAttribute('data-level');
+        state.cpuLevel = state.gameMode === 'boss' ? 'master' : state.gameMode === 'tournament' ? 'easy' : chosen;
+        state.gameNumber = 1;
+        state.playerWins = 0;
+        state.cpuWins = 0;
+        state.startingPlayer = 'player';
+        sfx.init();
+        sfx.playFlip();
+        startNewGame(null, null);
+      });
+    });
+
+    // ヘッダー「難易度」ボタン
+    document.getElementById('btn-level-select').addEventListener('click', () => {
+      if (state.hasStartedMatch && state.phase !== 'LEVEL_SELECT') {
+        el.btnCancelLevel.classList.remove('hidden');
+      } else {
+        el.btnCancelLevel.classList.add('hidden');
+      }
+      el.modalStartLevel.classList.remove('hidden');
+    });
+
+    el.btnCancelLevel.addEventListener('click', () => {
+      el.modalStartLevel.classList.add('hidden');
+    });
+
+    // 公開札全件一覧モーダル開閉
+    el.btnOpenHistory.addEventListener('click', openHistoryModal);
+    el.publicDiscardVisual.addEventListener('click', openHistoryModal);
+    document.getElementById('btn-close-history').addEventListener('click', () => el.modalHistory.classList.add('hidden'));
+    document.getElementById('btn-close-history-ok').addEventListener('click', () => el.modalHistory.classList.add('hidden'));
+
+    // 位置シャッフル & 揃った宣言
+    el.btnShuffleHand.addEventListener('click', handlePlayerShuffle);
+
+    el.btnShowdown.addEventListener('click', () => {
+      if (state.turnNumber <= 3) {
+        setLog(`🔒 最初の3ターンは勝負宣言禁止！（現在${state.turnNumber}ターン目／4ターン目から可能）`);
+        return;
+      }
+      if (['PLAYER_DISCARD', 'PLAYER_POST_DRAW_STEAL'].includes(state.phase) && state.playerHand.length === HAND_SIZE) {
+        triggerShowdown('player');
+      }
+    });
+
+    // 阻止モーダル
+    el.btnBlockYes.addEventListener('click', () => resolveCpuSteal(true));
+    el.btnBlockNo.addEventListener('click', () => resolveCpuSteal(false));
+
+    // 次のゲームへ（1枚持ち越し）
+    el.btnNextRound.addEventListener('click', () => {
+      const pCarry = state.playerHand[state.carryOverIndex];
+      const cSorted = [...state.cpuHand.slice(0, HAND_SIZE)].sort((a, b) => b.value - a.value);
+      const cCarry = cSorted[0];
+
+      state.gameNumber++;
+      state.startingPlayer = state.startingPlayer === 'player' ? 'cpu' : 'player';
+      startNewGame(pCarry, cCarry);
+    });
+
+    // もう1マッチ遊ぶ（レベル選択画面へ戻る）
+    el.btnNewMatch.addEventListener('click', () => {
+      el.modalRoundResult.classList.add('hidden');
+      el.btnCancelLevel.classList.add('hidden');
+      el.modalStartLevel.classList.remove('hidden');
+    });
+
+    // 効果音ミュート切替
+    const btnSound = document.getElementById('btn-sound');
+    btnSound.addEventListener('click', () => {
+      sfx.muted = !sfx.muted;
+      btnSound.textContent = sfx.muted ? '🔇' : '🔊';
+    });
+
+    // ルールモーダル開閉
+    document.getElementById('btn-rules').addEventListener('click', () => el.modalRules.classList.remove('hidden'));
+    document.getElementById('btn-close-rules').addEventListener('click', () => el.modalRules.classList.add('hidden'));
+    document.getElementById('btn-close-rules-ok').addEventListener('click', () => el.modalRules.classList.add('hidden'));
+
+    // 初期描画（スタート時のCPUレベル選択モーダル表示状態）
+    window.onload = () => {
+      state.playerHand = [
+        { id: 'S-14', suit: 'S', symbol: '♠', color: 'text-slate-900', value: 14, label: 'A' },
+        { id: 'H-13', suit: 'H', symbol: '♥', color: 'text-rose-600', value: 13, label: 'K' },
+        { id: 'D-12', suit: 'D', symbol: '♦', color: 'text-rose-600', value: 12, label: 'Q' },
+        { id: 'C-11', suit: 'C', symbol: '♣', color: 'text-slate-900', value: 11, label: 'J' }
+      ];
+      state.cpuHand = [...state.playerHand];
+      renderAll();
+    };
+  </script>
+</body>
+</html>
